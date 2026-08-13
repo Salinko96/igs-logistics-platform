@@ -1,0 +1,20 @@
+import { LegalNotice, LegalPage, LegalSection } from '@/components/legal/legal-page'
+import { legalIdentity } from '@/lib/legal'
+
+export const metadata = { title: 'Conditions générales | IGS Nexus' }
+
+export default function TermsPage() {
+  return <LegalPage title="Conditions générales d’utilisation et de service" description="Règles applicables à l’accès et à l’utilisation professionnelle d’IGS Nexus.">
+    <LegalNotice>Ce modèle contractuel doit être adapté aux offres commerciales définitives, aux modalités de paiement retenues et validé par un conseil juridique guinéen avant signature avec des clients.</LegalNotice>
+    <LegalSection title="1. Objet"><p>Les présentes conditions encadrent l’accès à IGS Nexus, plateforme SaaS de gestion logistique, documentaire, douanière, financière et de suivi, éditée par {legalIdentity.publisherName}.</p></LegalSection>
+    <LegalSection title="2. Compte et habilitations"><p>L’organisation cliente désigne ses utilisateurs et garantit l’exactitude des informations fournies. Chaque compte est personnel. Les identifiants ne doivent pas être partagés. Les administrateurs doivent activer la double authentification et retirer sans délai les accès devenus inutiles.</p></LegalSection>
+    <LegalSection title="3. Abonnement"><p>Les fonctionnalités, quotas, durée d’essai, prix, cycle de facturation et conditions de renouvellement sont ceux du plan choisi ou du devis accepté. Les dépassements peuvent être bloqués. Sauf disposition contraire du contrat, les sommes échues restent dues et les taxes applicables sont à la charge du client.</p></LegalSection>
+    <LegalSection title="4. Usage autorisé"><p>Le client utilise la plateforme pour ses activités licites. Il est interdit d’introduire des contenus malveillants, de contourner les contrôles d’accès, d’accéder aux données d’une autre organisation, de perturber le service ou d’utiliser les intégrations contrairement à leurs licences.</p></LegalSection>
+    <LegalSection title="5. Données du client"><p>Le client demeure responsable de la licéité, de la qualité et des droits attachés aux données chargées. Il autorise leur traitement aux seules fins de fournir, sécuriser et maintenir le service. Les modalités détaillées figurent dans la politique de confidentialité et, le cas échéant, dans un accord de sous-traitance.</p></LegalSection>
+    <LegalSection title="6. Services tiers"><p>Les informations provenant de ShipsGo, AISStream, transporteurs, administrations ou prestataires de paiement peuvent être estimées, différées ou indisponibles. Elles doivent être vérifiées avant toute décision opérationnelle, douanière, fiscale ou financière sensible.</p></LegalSection>
+    <LegalSection title="7. Disponibilité et support"><p>L’éditeur assure la maintenance selon des moyens raisonnables et peut interrompre temporairement le service pour sécurité ou maintenance. Les engagements de niveau de service spécifiques sont définis dans l’offre Enterprise ou un contrat séparé.</p></LegalSection>
+    <LegalSection title="8. Responsabilité"><p>Chaque partie répond des dommages directs prouvés résultant de ses manquements, dans les limites autorisées par la loi et le contrat commercial. Le client reste seul responsable des déclarations réglementaires, des instructions de transport, des factures émises et des validations professionnelles réalisées au moyen de la plateforme.</p></LegalSection>
+    <LegalSection title="9. Suspension et résiliation"><p>L’accès peut être suspendu en cas de risque de sécurité, impayé, usage illicite ou violation grave. À la fin du contrat, le client peut demander l’export de ses données pendant la période prévue au contrat; elles sont ensuite supprimées ou anonymisées sous réserve des obligations légales.</p></LegalSection>
+    <LegalSection title="10. Droit et litiges"><p>Le contrat est soumis au droit guinéen et, lorsque pertinent, aux textes OHADA. Après tentative de règlement amiable, les juridictions compétentes de Conakry sont saisies, sauf règle impérative contraire.</p></LegalSection>
+  </LegalPage>
+}

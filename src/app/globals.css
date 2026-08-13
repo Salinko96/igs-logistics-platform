@@ -1,0 +1,213 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ─── Ibrahima Gold Service Enterprise Theme ─── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-navy: #242229;
+  --color-navy-light: #2b2930;
+  --color-navy-lighter: #37343d;
+  --color-gold: #ff5a00;
+  --color-gold-light: #ff5a00;
+  --color-success: #047857;
+  --color-success-light: #d1fae5;
+  --color-warning: #b45309;
+  --color-warning-light: #fef3c7;
+  --color-danger: #b91c1c;
+  --color-danger-light: #fee2e2;
+  --color-info: #1d4ed8;
+  --color-info-light: #dbeafe;
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: #f4f6f4;
+  --foreground: #242229;
+  --card: #fbfcfb;
+  --card-foreground: #242229;
+  --popover: #ffffff;
+  --popover-foreground: #242229;
+  --primary: #ff5a00;
+  --primary-foreground: #ffffff;
+  --secondary: #eef2f1;
+  --secondary-foreground: #37343d;
+  --muted: #edf1ef;
+  --muted-foreground: #66736f;
+  --accent: #fff2e8;
+  --accent-foreground: #2b1a10;
+  --destructive: #b91c1c;
+  --border: #dfe7e3;
+  --input: #d8e2de;
+  --ring: #ff5a00;
+  --chart-1: #ff5a00;
+  --chart-2: #1d4ed8;
+  --chart-3: #475569;
+  --chart-4: #b45309;
+  --chart-5: #047857;
+  --sidebar: #201f24;
+  --sidebar-foreground: #d7dfdc;
+  --sidebar-primary: #ff5a00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2b2930;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #37343d;
+  --sidebar-ring: #ff5a00;
+}
+
+.dark {
+  --background: #0b1117;
+  --foreground: #f7f3ef;
+  --card: #201f24;
+  --card-foreground: #f7f3ef;
+  --popover: #111b24;
+  --popover-foreground: #f7f3ef;
+  --primary: #ff7a1a;
+  --primary-foreground: #ffffff;
+  --secondary: #2b2930;
+  --secondary-foreground: #e5eef0;
+  --muted: #2b2930;
+  --muted-foreground: #a8a19a;
+  --accent: #3a2114;
+  --accent-foreground: #fff7ed;
+  --destructive: #f87171;
+  --border: #21313c;
+  --input: #263842;
+  --ring: #ff7a1a;
+  --chart-1: #ff7a1a;
+  --chart-2: #60a5fa;
+  --chart-3: #94a3b8;
+  --chart-4: #f59e0b;
+  --chart-5: #34d399;
+  --sidebar: #141317;
+  --sidebar-foreground: #bfb7ae;
+  --sidebar-primary: #ff7a1a;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #242229;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #37343d;
+  --sidebar-ring: #ff7a1a;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.72), transparent 19rem);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .dark body {
+    background-image: linear-gradient(180deg, rgb(255 122 26 / 0.055), transparent 19rem);
+  }
+
+  ::selection {
+    background: rgb(255 90 0 / 0.2);
+    color: var(--foreground);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #9aa8a4;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #66736f;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #33434d;
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #4b5d68;
+}
+
+/* Premium card hover */
+.card-premium {
+  @apply bg-card border border-border rounded-lg shadow-sm transition-all duration-200;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.04);
+}
+.card-premium:hover {
+  @apply border-primary/25;
+  box-shadow: 0 16px 34px rgb(15 23 42 / 0.07);
+}
+
+/* Status badges */
+.status-badge {
+  @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.recharts-cartesian-axis-tick text {
+  fill: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.recharts-cartesian-grid line {
+  stroke: color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+/* Shared enterprise page rhythm */
+.page-heading {
+  @apply flex flex-col gap-1;
+}
+
+.page-heading h1 {
+  @apply text-xl font-semibold text-foreground sm:text-2xl;
+}
+
+.page-heading p {
+  @apply max-w-2xl text-sm leading-6 text-muted-foreground;
+}
+
+.metric-icon {
+  @apply flex size-10 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/55;
+}

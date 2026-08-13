@@ -1,0 +1,23 @@
+name: Production smoke test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify production health
+        env:
+          BASE_URL: ${{ secrets.E2E_BASE_URL }}
+        run: |
+          test -n "$BASE_URL"
+          curl --fail --silent --show-error --retry 3 --retry-all-errors \
+            --max-time 15 "${BASE_URL%/}/api/health" | tee health.json
+          grep -q '"status":"ok"' health.json

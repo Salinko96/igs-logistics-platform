@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "next-env.d.ts",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "playwright.config.ts",
+    "tests/e2e/helpers.ts",
+    "tests/e2e/public.spec.ts",
+    "tests/e2e/secure.spec.ts",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": ["node_modules", "examples", "scripts", "tests/e2e/helpers/**", "tests/e2e/mocks/**", "tests/e2e/tier*/**", "tests/e2e/run-all.ts"]
+}

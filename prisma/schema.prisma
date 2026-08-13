@@ -1,0 +1,826 @@
+// Ibrahima Gold Service - Prisma Schema
+// Plateforme intelligente de pilotage du transit, de la douane et de la logistique en Guinée
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Organisation & Multi-tenant ───
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logoUrl   String?
+  address   String?
+  city      String   @default("Conakry")
+  country   String   @default("Guinée")
+  phone     String?
+  email     String?
+  taxId     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings             OrganizationSettings?
+  profiles             Profile[]
+  clients              Client[]
+  cases                Case[]
+  invoices             Invoice[]
+  expenseRequests      ExpenseRequest[]
+  incidents            Incident[]
+  auditLogs            AuditLog[]
+  opportunities        Opportunity[]
+  loginAttempts        LoginAttempt[]
+  subscription         SaaSSubscription?
+  subscriptionPayments SaaSSubscriptionPayment[]
+}
+
+model SaaSPlan {
+  id               String   @id @default(cuid())
+  code             String   @unique
+  name             String
+  description      String?
+  monthlyPrice     Int
+  annualPrice      Int
+  currency         String   @default("GNF")
+  maxCasesPerMonth Int?
+  maxUsers         Int?
+  maxStorageBytes  BigInt?
+  features         Json
+  isActive         Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  subscriptions SaaSSubscription[]
+}
+
+model SaaSSubscription {
+  id                     String    @id @default(cuid())
+  organizationId         String    @unique
+  planId                 String
+  status                 String    @default("trialing")
+  billingCycle           String    @default("monthly")
+  provider               String    @default("manual")
+  providerCustomerId     String?   @unique
+  providerSubscriptionId String?   @unique
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  trialEndsAt            DateTime?
+  cancelAtPeriodEnd      Boolean   @default(false)
+  canceledAt             DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  organization Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan         SaaSPlan                  @relation(fields: [planId], references: [id])
+  payments     SaaSSubscriptionPayment[]
+
+  @@index([planId])
+  @@index([status, currentPeriodEnd])
+}
+
+model SaaSSubscriptionPayment {
+  id                 String    @id @default(cuid())
+  organizationId     String
+  subscriptionId     String
+  provider           String
+  providerPaymentId  String    @unique
+  amount             Int
+  currency           String    @default("GNF")
+  status             String    @default("pending")
+  billingPeriodStart DateTime?
+  billingPeriodEnd   DateTime?
+  paidAt             DateTime?
+  receiptUrl         String?
+  metadata           Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription SaaSSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([subscriptionId, status])
+}
+
+model LoginAttempt {
+  id             String    @id @default(cuid())
+  organizationId String?
+  identifierHash String    @unique
+  emailMasked    String?
+  failedCount    Int       @default(0)
+  lockedUntil    DateTime?
+  lastFailedAt   DateTime?
+  lastIpAddress  String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([lockedUntil])
+}
+
+model OrganizationSettings {
+  id                       String   @id @default(cuid())
+  organizationId           String   @unique
+  currency                 String   @default("GNF")
+  dateFormat               String   @default("DD/MM/YYYY")
+  timezone                 String   @default("Africa/Conakry")
+  language                 String   @default("fr")
+  invoicePrefix            String   @default("FAC")
+  casePrefix               String   @default("IGS")
+  expenseApprovalMinAmount Int      @default(500000)
+  expenseApprovalMaxAmount Int      @default(5000000)
+  quotationValidityDays    Int      @default(30)
+  smtpConfig               String? // JSON
+  notificationConfig       String? // JSON
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+}
+
+// ─── Utilisateurs & RBAC ───
+
+model Profile {
+  id             String    @id @default(cuid())
+  organizationId String
+  userId         String    @unique
+  firstName      String
+  lastName       String
+  email          String
+  phone          String?
+  role           app_role  @default(AGENT)
+  avatarUrl      String?
+  isActive       Boolean   @default(true)
+  lastLoginAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  clientId       String?
+
+  organization     Organization      @relation(fields: [organizationId], references: [id])
+  client           Client?           @relation(fields: [clientId], references: [id])
+  assignedCases    CaseAssignee[]
+  expenseApprovals ExpenseApproval[]
+  comments         Comment[]
+  cashTransactions CashTransaction[]
+  commercialCases  Case[]            @relation("CaseCommercial")
+  chefCases        Case[]            @relation("CaseServiceChef")
+  expenseRequests  ExpenseRequest[]  @relation("ExpenseRequester")
+
+  @@index([organizationId])
+}
+
+// ─── Clients & CRM ───
+
+model Client {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  type           String   @default("entreprise") // entreprise, particulier, gouvernement
+  sector         String? // Importateur, Distributeur, Industriel, PME
+  segment        String? // Premium, Standard, Occasionnel
+  taxId          String?
+  address        String?
+  city           String   @default("Conakry")
+  country        String   @default("Guinée")
+  phone          String?
+  email          String?
+  website        String?
+  notes          String?
+  creditLimit    Float? // en GNF
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization    @relation(fields: [organizationId], references: [id])
+  contacts      ClientContact[]
+  cases         Case[]
+  invoices      Invoice[]
+  payments      Payment[]
+  opportunities Opportunity[]
+  profiles      Profile[]
+
+  @@index([organizationId])
+}
+
+model ClientContact {
+  id        String   @id @default(cuid())
+  clientId  String
+  firstName String
+  lastName  String
+  position  String?
+  email     String?
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model Opportunity {
+  id              String    @id @default(cuid())
+  organizationId  String
+  clientId        String?
+  title           String
+  description     String?
+  value           Float?
+  currency        String    @default("GNF")
+  stage           String    @default("prospect") // prospect, qualification, proposition, negotiation, gagne, perdu
+  probability     Int       @default(0)
+  assignedToId    String?
+  expectedCloseAt DateTime?
+  lostReason      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  client       Client?      @relation(fields: [clientId], references: [id])
+
+  @@index([organizationId])
+  @@index([clientId])
+}
+
+// ─── Dossiers Opérationnels ───
+
+model Case {
+  id               String    @id @default(cuid())
+  organizationId   String
+  reference        String // IGS-2027-MAR-0001
+  type             String // maritime, aerien, terrestre, multimodal
+  direction        String // import, export, transit
+  status           String    @default("brouillon")
+  priority         String    @default("normale") // normale, haute, urgente, critique
+  clientId         String
+  commercialId     String? // Profile ID du commercial
+  serviceChefId    String // Profile ID du chef de service responsable
+  description      String?
+  merchandise      String?
+  weightKg         Float?
+  volumeM3         Float?
+  packageCount     Int?
+  declaredValue    Float?
+  declaredCurrency String    @default("GNF")
+  incoterm         String?
+  supplier         String?
+  shipper          String?
+  consignee        String?
+  originPort       String?
+  destinationPort  String?
+  eta              DateTime?
+  etd              DateTime?
+  ata              DateTime?
+  estimatedRevenue Float?
+  estimatedCost    Float?
+  currency         String    @default("GNF")
+  gucegRef         String?
+  sydoniaRef       String?
+  riskLevel        String    @default("faible") // faible, moyen, eleve, critique
+  clientVisible    Boolean   @default(true)
+  notes            String?
+  closedAt         DateTime?
+  closedById       String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization        Organization         @relation(fields: [organizationId], references: [id])
+  client              Client               @relation(fields: [clientId], references: [id])
+  commercial          Profile?             @relation("CaseCommercial", fields: [commercialId], references: [id])
+  serviceChef         Profile              @relation("CaseServiceChef", fields: [serviceChefId], references: [id])
+  statusHistory       CaseStatusHistory[]
+  assignees           CaseAssignee[]
+  milestones          CaseMilestone[]
+  checklists          CaseChecklist[]
+  documents           Document[]
+  shipments           Shipment[]
+  flights             Flight[]
+  transportMissions   TransportMission[]
+  customsDeclarations CustomsDeclaration[]
+  expenseRequests     ExpenseRequest[]
+  invoices            Invoice[]
+  comments            Comment[]
+  incidents           Incident[]
+
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([commercialId])
+  @@index([serviceChefId])
+  @@index([status, priority])
+}
+
+model CaseStatusHistory {
+  id         String   @id @default(cuid())
+  caseId     String
+  fromStatus String?
+  toStatus   String
+  comment    String?
+  profileId  String
+  createdAt  DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model CaseAssignee {
+  id         String   @id @default(cuid())
+  caseId     String
+  profileId  String
+  role       String   @default("agent") // chef_service, agent, declarant, passeur, livreur
+  assignedAt DateTime @default(now())
+
+  case    Case    @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  profile Profile @relation(fields: [profileId], references: [id])
+
+  @@unique([caseId, profileId])
+  @@index([profileId])
+}
+
+model CaseMilestone {
+  id          String    @id @default(cuid())
+  caseId      String
+  name        String
+  type        String // booking, embarquement, arrivee, dedouanement, sortie, livraison, retour_vide
+  status      String    @default("planifie") // planifie, en_cours, atteint, en_retard, echoue
+  plannedDate DateTime?
+  actualDate  DateTime?
+  description String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+model CaseChecklist {
+  id            String    @id @default(cuid())
+  caseId        String
+  label         String
+  category      String? // document, douane, transport, facturation
+  isRequired    Boolean   @default(false)
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  completedById String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+// ─── Documents ───
+
+model Document {
+  id               String    @id @default(cuid())
+  caseId           String?
+  organizationId   String
+  name             String
+  category         String    @default("autre") // bl, awb, facture_commerciale, packing_list, certificat_origine, declaration, quitus, bon_livraison, preuve_paiement, autre
+  fileType         String? // MIME type
+  fileSize         Int?
+  fileUrl          String?
+  status           String    @default("recu") // recu, en_verification, conforme, non_conforme, expire, rejete
+  version          Int       @default(1)
+  expiresAt        DateTime?
+  uploadedById     String?
+  sharedWithClient Boolean   @default(false)
+  downloadToken    String? // Token expirable
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  case Case? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([caseId])
+  @@index([organizationId])
+}
+
+// ─── Maritime ───
+
+model Shipment {
+  id                      String    @id @default(cuid())
+  caseId                  String
+  vesselName              String?
+  voyageNumber            String?
+  blNumber                String?
+  shippingLine            String?
+  loadingPort             String?
+  dischargePort           String?
+  bookingNumber           String?
+  terminal                String?
+  freeTimeEndsAt          DateTime?
+  containerReturnDeadline DateTime?
+  terminalFees            Float?
+  demurrageFees           Float?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  case       Case        @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  containers Container[]
+
+  @@index([caseId])
+}
+
+model Container {
+  id              String   @id @default(cuid())
+  shipmentId      String
+  containerNumber String?
+  size            String? // 20ft, 40ft, 40hc, 45hc
+  type            String? // standard, high_cube, reefer, open_top, flat_rack
+  status          String   @default("en_transit") // en_transit, arrive, decharge, vide, retourne
+  sealNumber      String?
+  grossWeight     Float?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  shipment Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@index([shipmentId])
+}
+
+// ─── Aérien ───
+
+model Flight {
+  id               String    @id @default(cuid())
+  caseId           String
+  awbNumber        String?
+  airline          String?
+  flightNumber     String?
+  departureAirport String?
+  arrivalAirport   String?
+  departureTime    DateTime?
+  arrivalTime      DateTime?
+  grossWeightKg    Float?
+  netWeightKg      Float?
+  packageCount     Int?
+  natureOfGoods    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
+
+// ─── Terrestre ───
+
+model TransportMission {
+  id              String    @id @default(cuid())
+  caseId          String?
+  organizationId  String
+  type            String    @default("livraison") // enlevement, livraison
+  status          String    @default("assigne") // assigne, en_route, arrive, charge, en_transit, livre, incident
+  vehiclePlate    String?
+  driverName      String?
+  driverPhone     String?
+  transporter     String?
+  pickupAddress   String?
+  deliveryAddress String?
+  scheduledDate   DateTime?
+  completedDate   DateTime?
+  deliveryNote    String? // BON LIVRAISON
+  signatureData   String? // Base64
+  photoUrl        String?
+  latitude        Float?
+  longitude       Float?
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  case Case? @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([caseId])
+  @@index([organizationId])
+}
+
+// ─── Douane ───
+
+model CustomsDeclaration {
+  id                   String    @id @default(cuid())
+  caseId               String
+  regime               String? // import, export, transit
+  declarationType      String?
+  gucegRef             String?
+  sydoniaRef           String?
+  status               String    @default("preparation") // preparation, declare_preparee, deposee, circuit, controle, paiement, mainlevee, rejet, blocage
+  declarationNumber    String?
+  submittedAt          DateTime?
+  clearedAt            DateTime?
+  releaseNoteNumber    String?
+  notes                String?
+  hsCode               String?
+  hsDescription        String?
+  tariffRate           Float?
+  countryOfOrigin      String?
+  countryOfDestination String?
+  customsValue         Float?
+  customsValueCurrency String    @default("GNF")
+  dutyAmount           Float?
+  vatAmount            Float?
+  integrationMode      String    @default("manuel") // manuel, api (future)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  case   Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  events CustomsEvent[]
+
+  @@index([caseId])
+}
+
+model CustomsEvent {
+  id            String   @id @default(cuid())
+  declarationId String
+  eventType     String // depot, circuit, controle, observation, paiement, mainlevee, rejet
+  description   String?
+  performedById String?
+  performedAt   DateTime @default(now())
+
+  declaration CustomsDeclaration @relation(fields: [declarationId], references: [id], onDelete: Cascade)
+
+  @@index([declarationId])
+}
+
+// ─── Débours & Caisse ───
+
+model ExpenseRequest {
+  id              String    @id @default(cuid())
+  organizationId  String
+  caseId          String?
+  requesterId     String // Profile ID
+  amount          Float
+  currency        String    @default("GNF")
+  amountGnf       Float? // Montant converti en GNF
+  description     String
+  vendor          String?
+  vendorType      String? // fournisseur, transporteur, douane, terminal, autre
+  category        String? // droits_taxes, frais_terminal, transport, surestarie, autre
+  status          String    @default("cree") // cree, soumis, en_validation, approuve, paye, justifie, rejete, rapproche
+  rejectionReason String?
+  approvedById    String?
+  approvedAt      DateTime?
+  paidById        String?
+  paidAt          DateTime?
+  receiptUrl      String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id])
+  case         Case?             @relation(fields: [caseId], references: [id])
+  requester    Profile           @relation("ExpenseRequester", fields: [requesterId], references: [id])
+  approvals    ExpenseApproval[]
+
+  @@index([organizationId])
+  @@index([caseId])
+  @@index([requesterId])
+  @@index([status])
+}
+
+model ExpenseApproval {
+  id         String    @id @default(cuid())
+  expenseId  String
+  approverId String // Profile ID
+  level      Int       @default(1)
+  status     String    @default("en_attente") // en_attente, approuve, rejete
+  comment    String?
+  decidedAt  DateTime?
+
+  expense  ExpenseRequest @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  approver Profile        @relation(fields: [approverId], references: [id])
+
+  @@index([expenseId])
+  @@index([approverId])
+}
+
+model CashTransaction {
+  id             String   @id @default(cuid())
+  organizationId String
+  type           String // entree, sortie
+  amount         Float
+  currency       String   @default("GNF")
+  description    String
+  expenseId      String?
+  paymentMethod  String? // especes, virement, cheque, mobile_money
+  performedById  String // Profile ID (caissier)
+  receiptUrl     String?
+  createdAt      DateTime @default(now())
+
+  performedBy Profile @relation(fields: [performedById], references: [id])
+
+  @@index([organizationId])
+  @@index([performedById])
+}
+
+// ─── Facturation & Recouvrement ───
+
+model Invoice {
+  id                   String    @id @default(cuid())
+  organizationId       String
+  caseId               String?
+  clientId             String
+  invoiceNumber        String
+  status               String    @default("brouillon") // brouillon, emise, envoyee, payee, partiellement_payee, echue, annulee
+  issuedAt             DateTime?
+  supplyDate           DateTime?
+  dueDate              DateTime?
+  paidAmount           Float     @default(0)
+  totalAmount          Float
+  currency             String    @default("GNF")
+  taxRate              Float     @default(18)
+  taxAmount            Float     @default(0)
+  netAmount            Float
+  discountAmount       Float     @default(0)
+  vatRegime            String    @default("standard") // standard, zero_export, exonere
+  vatLegalReference    String?
+  vatWithholdingRate   Float     @default(0)
+  vatWithholdingAmount Float     @default(0)
+  withholdingTaxRate   Float     @default(0)
+  withholdingTaxAmount Float     @default(0)
+  amountPayable        Float     @default(0)
+  paymentTerms         String?
+  purchaseOrderRef     String?
+  notes                String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id])
+  case         Case?         @relation(fields: [caseId], references: [id])
+  client       Client        @relation(fields: [clientId], references: [id])
+  items        InvoiceItem[]
+  payments     Payment[]
+
+  @@unique([organizationId, invoiceNumber])
+  @@index([organizationId])
+  @@index([caseId])
+  @@index([clientId])
+  @@index([status, dueDate])
+}
+
+model InvoiceItem {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  description  String
+  quantity     Float    @default(1)
+  unit         String   @default("unité")
+  unitPrice    Float
+  discountRate Float    @default(0)
+  taxRate      Float    @default(18)
+  taxAmount    Float    @default(0)
+  total        Float
+  createdAt    DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Payment {
+  id                String    @id @default(cuid())
+  organizationId    String
+  invoiceId         String
+  clientId          String
+  amount            Float
+  currency          String    @default("GNF")
+  method            String? // virement, especes, cheque, mobile_money
+  reference         String?
+  status            String    @default("en_attente") // en_attente, confirme, annule
+  confirmedById     String?
+  confirmedAt       DateTime?
+  notes             String?
+  provider          String    @default("manuel")
+  providerPaymentId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id])
+  client  Client  @relation(fields: [clientId], references: [id])
+
+  @@index([invoiceId])
+  @@index([clientId])
+  @@index([organizationId, providerPaymentId])
+}
+
+// ─── Incidents & Réclamations ───
+
+model Incident {
+  id             String    @id @default(cuid())
+  organizationId String
+  caseId         String?
+  title          String
+  description    String
+  type           String // retard, document_incomplet, dommage, perte, paiement, blocage_administratif, accident, autre
+  severity       String    @default("moyen") // faible, moyen, eleve, critique
+  status         String    @default("ouvert") // ouvert, en_cours, resolu, clôturé
+  assignedToId   String?
+  resolvedAt     DateTime?
+  resolution     String?
+  photoUrl       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+  case         Case?        @relation(fields: [caseId], references: [id])
+
+  @@index([organizationId])
+  @@index([caseId])
+  @@index([status, severity])
+}
+
+// ─── Notifications & Communications ───
+
+model Notification {
+  id             String   @id @default(cuid())
+  organizationId String
+  profileId      String?
+  title          String
+  message        String
+  type           String   @default("info") // info, succes, avertissement, erreur, alerte
+  category       String? // dossier, paiement, document, incident, systeme
+  isRead         Boolean  @default(false)
+  link           String? // Internal link
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, profileId])
+}
+
+model Comment {
+  id             String   @id @default(cuid())
+  caseId         String?
+  organizationId String
+  profileId      String
+  content        String
+  isInternal     Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  case    Case?   @relation(fields: [caseId], references: [id])
+  profile Profile @relation(fields: [profileId], references: [id])
+
+  @@index([caseId])
+  @@index([profileId])
+}
+
+// ─── Audit & Configuration ───
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  profileId      String?
+  action         String // create, update, delete, approve, reject, export, login, logout
+  entityType     String // case, invoice, expense, document, etc.
+  entityId       String?
+  details        String? // JSON
+  ipAddress      String?
+  userAgent      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+model ExchangeRate {
+  id             String   @id @default(cuid())
+  organizationId String
+  fromCurrency   String
+  toCurrency     String
+  rate           Float
+  date           DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, fromCurrency, toCurrency, date])
+}
+
+model ServiceCatalog {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  type           String // maritime, aerien, terrestre, douane, entreposage, autre
+  description    String?
+  defaultPrice   Float?
+  currency       String   @default("GNF")
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+enum app_role {
+  ADMIN
+  AGENT
+  CLIENT
+}
