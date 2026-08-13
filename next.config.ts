@@ -42,6 +42,8 @@ const nextConfig: NextConfig = {
 };
 
 export default withSentryConfig(withBundleAnalyzer(nextConfig), {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
   silent: true,
   sourcemaps: { disable: !process.env.SENTRY_AUTH_TOKEN },
   webpack: { treeshake: { removeDebugLogging: true } },
