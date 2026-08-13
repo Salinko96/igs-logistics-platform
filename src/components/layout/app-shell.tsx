@@ -47,7 +47,7 @@ function ViewRouter() {
       view = <DashboardView />
       break
     case 'cases':
-      view = <CasesList filter={{ scope: viewParams.scope }} />
+      view = <CasesList filter={{ scope: viewParams.scope, search: viewParams.search }} />
       break
     case 'case-new':
       view = <CaseNew />
@@ -86,7 +86,7 @@ function ViewRouter() {
       view = <ExpensesList initialFilter={viewParams.filter} />
       break
     case 'invoices':
-      view = <InvoicesList />
+      view = <InvoicesList initialSearch={viewParams.search} />
       break
     case 'incidents':
       view = <IncidentsList />

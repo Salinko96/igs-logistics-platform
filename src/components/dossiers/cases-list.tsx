@@ -48,7 +48,7 @@ import { PageHero } from '@/components/shared/page-hero'
 // ─── Types ───────────────────────────────────────────────
 
 interface CasesListProps {
-  filter?: { type?: string; status?: string; scope?: string }
+  filter?: { type?: string; status?: string; scope?: string; search?: string }
 }
 
 interface CaseItem {
@@ -133,7 +133,7 @@ export default function CasesList({ filter }: CasesListProps) {
   const setView = useAppStore((s) => s.setView)
 
   // ── Local filter state ──
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useState(filter?.search || '')
   const [typeFilter, setTypeFilter] = useState<string>(filter?.type || 'tous')
   const [statusFilter, setStatusFilter] = useState<string>(filter?.status || 'tous')
   const [sortField, setSortField] = useState<'updatedAt' | 'createdAt' | 'reference'>('updatedAt')

@@ -38,6 +38,8 @@ import {
   Users,
   Crown,
   Star,
+  FolderOpen,
+  Receipt,
 } from 'lucide-react'
 import { PageHero } from '@/components/shared/page-hero'
 
@@ -65,6 +67,7 @@ interface Client {
   taxId: string
   isActive: boolean
   contacts: Contact[]
+  _count: { cases: number; invoices: number }
 }
 
 interface ClientFormState {
@@ -175,6 +178,7 @@ interface ClientCardProps {
 }
 
 function ClientCard({ client, onClick }: ClientCardProps) {
+  const setView = useAppStore((state) => state.setView)
   const primaryContact = client.contacts.find((c) => c.isPrimary)
   const contactEmail = primaryContact?.email || client.email || ''
 
@@ -269,6 +273,10 @@ function ClientCard({ client, onClick }: ClientCardProps) {
             </Button>
           </div>
         ) : null}
+        <div className="mt-3 grid grid-cols-2 gap-2 border-t pt-3">
+          <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); setView('cases', { search: client.name }) }}><FolderOpen size={14} className="mr-1.5" />{client._count.cases} dossier{client._count.cases > 1 ? 's' : ''}</Button>
+          <Button type="button" variant="outline" size="sm" onClick={(event) => { event.stopPropagation(); setView('invoices', { search: client.name }) }}><Receipt size={14} className="mr-1.5" />{client._count.invoices} facture{client._count.invoices > 1 ? 's' : ''}</Button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -331,6 +339,9 @@ export default function ClientsList() {
   const setView = useAppStore((s) => s.setView)
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
+  const [sectorFilter, setSectorFilter] = useState('all')
+  const [cityFilter, setCityFilter] = useState('all')
+  const [segmentFilter, setSegmentFilter] = useState('all')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<ClientFormState>(EMPTY_CLIENT_FORM)
   const [formError, setFormError] = useState('')
@@ -400,11 +411,16 @@ export default function ClientsList() {
 
   const filtered = clients.filter(
     (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      (sectorFilter === 'all' || c.sector === sectorFilter) &&
+      (cityFilter === 'all' || c.city === cityFilter) &&
+      (segmentFilter === 'all' || normalizeSegment(c.segment) === segmentFilter) &&
+      (c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.city?.toLowerCase().includes(search.toLowerCase()) ||
       c.sector?.toLowerCase().includes(search.toLowerCase()) ||
-      c.email?.toLowerCase().includes(search.toLowerCase())
+      c.email?.toLowerCase().includes(search.toLowerCase()))
   )
+  const sectors = Array.from(new Set(clients.map((client) => client.sector).filter(Boolean))).sort()
+  const cities = Array.from(new Set(clients.map((client) => client.city).filter(Boolean))).sort()
 
   const totalCount = clients.length
   const premiumCount = clients.filter(
@@ -446,7 +462,7 @@ export default function ClientsList() {
       </div>
 
       {/* ─── Search & Actions ─── */}
-      <div className="flex flex-col gap-3 border-y border-border/70 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="grid gap-3 border-y border-border/70 py-4 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1fr)_180px_180px_180px_auto]">
         <div className="relative w-full sm:max-w-sm">
           <Search
             size={16}
@@ -459,6 +475,9 @@ export default function ClientsList() {
             className="pl-9"
           />
         </div>
+        <Select value={sectorFilter} onValueChange={setSectorFilter}><SelectTrigger aria-label="Filtrer par secteur"><SelectValue placeholder="Secteur" /></SelectTrigger><SelectContent><SelectItem value="all">Tous les secteurs</SelectItem>{sectors.map((sector) => <SelectItem key={sector} value={sector}>{sector}</SelectItem>)}</SelectContent></Select>
+        <Select value={cityFilter} onValueChange={setCityFilter}><SelectTrigger aria-label="Filtrer par ville"><SelectValue placeholder="Ville" /></SelectTrigger><SelectContent><SelectItem value="all">Toutes les villes</SelectItem>{cities.map((city) => <SelectItem key={city} value={city}>{city}</SelectItem>)}</SelectContent></Select>
+        <Select value={segmentFilter} onValueChange={setSegmentFilter}><SelectTrigger aria-label="Filtrer par segment"><SelectValue placeholder="Segment" /></SelectTrigger><SelectContent><SelectItem value="all">Tous les segments</SelectItem><SelectItem value="premium">Premium</SelectItem><SelectItem value="standard">Standard</SelectItem><SelectItem value="occasionnel">Occasionnel</SelectItem></SelectContent></Select>
         <Button type="button" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
           <Plus size={16} className="mr-2" />
           {t('action.newClient')}

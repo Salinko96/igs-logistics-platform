@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     const clients = await db.client.findMany({
       where: whereClause,
-      include: { contacts: true },
+      include: { contacts: true, _count: { select: { cases: true, invoices: true } } },
       orderBy: { name: 'asc' },
     })
 

@@ -143,4 +143,26 @@ test.describe('parcours sécurisés sur base E2E dédiée', () => {
     await expect(closeMenu).toBeHidden()
     await expect(page.locator('header').getByText('Tableau de bord', { exact: true }).last()).toBeVisible()
   })
+
+  test('les filtres clients et les compteurs ouvrent les listes associées', async ({ page }) => {
+    test.skip(!hasSecureEnvironment(), 'Configurer un compte agent E2E dédié.')
+    const env = secureEnvironment()
+    await page.goto('/login')
+    await page.getByLabel('Email').fill(env.orgA.email)
+    await page.getByLabel('Mot de passe').fill(env.orgA.password)
+    await page.getByRole('button', { name: /se connecter/i }).click()
+    await page.waitForURL(/\/dashboard/)
+    await page.goto('/clients')
+
+    await expect(page.getByLabel('Filtrer par secteur')).toBeVisible()
+    await expect(page.getByLabel('Filtrer par ville')).toBeVisible()
+    await expect(page.getByLabel('Filtrer par segment')).toBeVisible()
+    const clientName = await page.locator('main h3').first().innerText()
+    await page.getByRole('button', { name: /dossier/ }).first().click()
+    await expect(page.getByPlaceholder('Rechercher un dossier...')).toHaveValue(clientName)
+
+    await page.goto('/clients')
+    await page.getByRole('button', { name: /facture/ }).first().click()
+    await expect(page.getByPlaceholder('N° facture, client ou dossier...')).toHaveValue(clientName)
+  })
 })

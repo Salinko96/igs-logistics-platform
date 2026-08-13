@@ -123,9 +123,9 @@ function InvoiceDetail({ invoice, busy, onStatus, onPayment }: { invoice: Invoic
   </div></TableCell></TableRow>
 }
 
-export default function InvoicesList() {
+export default function InvoicesList({ initialSearch = '' }: { initialSearch?: string }) {
   const { t } = useI18n(); const queryClient = useQueryClient()
-  const [statusFilter, setStatusFilter] = useState('all'); const [search, setSearch] = useState(''); const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState('all'); const [search, setSearch] = useState(initialSearch); const [expandedId, setExpandedId] = useState<string | null>(null)
   const [page, setPage] = useState(1); const debouncedSearch = useDebouncedValue(search)
   const [createOpen, setCreateOpen] = useState(false); const [form, setForm] = useState<InvoiceForm>(initialForm); const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false)
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceSummary | null>(null); const [payment, setPayment] = useState({ amount: '', method: 'virement', reference: '', notes: '' })
