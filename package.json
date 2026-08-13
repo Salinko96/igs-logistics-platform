@@ -9,6 +9,8 @@
     "start": "NODE_ENV=production node .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit -p tsconfig.ci.json",
+    "test:unit": "tsx --test tests/unit/*.test.ts",
+    "verify": "npm run lint && npm run typecheck && npm run test:unit && npm audit --omit=dev --audit-level=high && npm run build",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:public": "npm run build && playwright test --project=public-chromium --project=public-mobile",
     "test:e2e:secure": "playwright test --project=secure --workers=1",

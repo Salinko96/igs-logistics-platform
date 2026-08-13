@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { configurationStatus } from '@/lib/configuration'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,7 @@ async function databaseIsReachable() {
 
 export async function GET() {
   const startedAt = performance.now()
+  const configuration = configurationStatus()
 
   try {
     await databaseIsReachable()
@@ -22,6 +24,8 @@ export async function GET() {
       status: 'ok',
       service: 'igs-logistics-platform',
       database: 'reachable',
+      ready: configuration.coreReady,
+      capabilities: configuration.integrations,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
       responseTimeMs: Math.round(performance.now() - startedAt),
       timestamp: new Date().toISOString(),
@@ -33,6 +37,8 @@ export async function GET() {
       status: 'degraded',
       service: 'igs-logistics-platform',
       database: 'unreachable',
+      ready: false,
+      capabilities: configuration.integrations,
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'local',
       responseTimeMs: Math.round(performance.now() - startedAt),
       timestamp: new Date().toISOString(),

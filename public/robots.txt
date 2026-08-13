@@ -12,3 +12,12 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /dossiers
+Disallow: /clients
+Disallow: /documents
+Disallow: /facturation
+Disallow: /parametres
+Disallow: /abonnement
+Disallow: /portail
