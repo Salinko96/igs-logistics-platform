@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { SecuritySettings } from '@/components/settings/security-settings'
 import { useI18n } from '@/lib/i18n'
+import { PageHero } from '@/components/shared/page-hero'
 
 type SettingsPayload = {
   organization: {
@@ -228,10 +229,7 @@ export default function SettingsView() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('nav.settings')}</h1>
-        <p className="text-sm text-muted-foreground">Configuration de la plateforme Ibrahima Gold Service</p>
-      </div>
+      <PageHero eyebrow="Administration" title={t('nav.settings')} description="Configurez votre organisation, vos utilisateurs, la sécurité et les préférences de la plateforme." />
 
       <Tabs defaultValue="organisation" className="space-y-6">
         <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">

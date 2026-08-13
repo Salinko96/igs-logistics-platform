@@ -27,6 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { useI18n } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+import { PageHero } from '@/components/shared/page-hero'
 import {
   formatGNF,
   getStatusLabel,
@@ -352,10 +353,7 @@ export default function DashboardView() {
 
   return (
     <div className="space-y-6">
-      <div className="page-heading">
-          <h1>{t('screen.overview')}</h1>
-        <p>Suivi en temps réel des opérations, des alertes et de la performance financière.</p>
-      </div>
+      <PageHero eyebrow="Pilotage des opérations" title={t('screen.overview')} description="Suivi en temps réel des opérations, des alertes et de la performance financière." />
 
       {/* ─── Top Row: 5 KPI Cards ─── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">

@@ -43,6 +43,7 @@ import { useI18n } from '@/lib/i18n'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { PaginationFooter } from '@/components/shared/pagination-footer'
 import type { PaginationMeta } from '@/lib/pagination'
+import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───────────────────────────────────────────────
 
@@ -212,19 +213,14 @@ export default function CasesList({ filter }: CasesListProps) {
   return (
     <div className="space-y-4">
       {/* ─── Header ─── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {title}
-        </h1>
-        <Button
+      <PageHero eyebrow="Centre opérationnel" title={title} description="Centralisez les expéditions, priorités, blocages et responsabilités de chaque dossier." actions={<Button
           type="button"
           onClick={() => setView('case-new')}
           className="shrink-0"
         >
           <Plus className="mr-2 size-4" />
           {t('action.newCase')}
-        </Button>
-      </div>
+        </Button>} />
 
       {/* ─── Filters Bar ─── */}
       <Card className="border-0 shadow-sm">

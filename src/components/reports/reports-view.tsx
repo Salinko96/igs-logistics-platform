@@ -37,6 +37,7 @@ import {
   FileText,
   FileSpreadsheet,
 } from 'lucide-react'
+import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───
 
@@ -322,16 +323,7 @@ export default function ReportsView() {
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Rapports & KPI
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Analyse de performance et indicateurs clés
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHero eyebrow="Intelligence décisionnelle" title="Rapports & KPI" description="Analysez la performance opérationnelle, commerciale et financière." actions={<div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
             variant="outline"
@@ -362,8 +354,7 @@ export default function ReportsView() {
             <Download size={14} />
             CSV
           </Button>
-        </div>
-      </div>
+        </div>} />
 
       {/* ─── KPI Summary Cards ─── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -211,3 +211,49 @@
 .metric-icon {
   @apply flex size-10 shrink-0 items-center justify-center rounded-md border border-border/60 bg-muted/55;
 }
+
+/* Shared visual identity for every operational module. */
+.page-hero {
+  @apply relative overflow-hidden rounded-2xl px-5 py-6 text-white shadow-lg sm:px-6;
+  background: linear-gradient(118deg, #063f43 0%, #07555a 100%);
+  box-shadow: 0 18px 38px rgb(6 63 67 / 0.16);
+}
+.page-hero-orbit {
+  @apply pointer-events-none absolute -right-12 -top-20 size-56 rounded-full border-[28px] border-white/[0.055];
+}
+.page-hero-eyebrow {
+  @apply mb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-200;
+}
+.page-hero-title {
+  @apply text-2xl font-bold tracking-tight sm:text-3xl;
+}
+.page-hero-description {
+  @apply mt-2 max-w-2xl text-sm leading-6 text-cyan-50/80;
+}
+.page-hero-actions {
+  @apply flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center;
+}
+.page-hero-actions > button,
+.page-hero-actions > a {
+  @apply border-amber-300 bg-amber-400 text-slate-950 shadow-sm hover:bg-amber-300;
+}
+
+main [data-slot="card"] {
+  box-shadow: 0 10px 26px rgb(15 23 42 / 0.045);
+}
+
+main [data-slot="table-container"] {
+  scrollbar-color: #8da29c transparent;
+}
+
+main [data-slot="table-header"] {
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+}
+
+main [data-slot="table-head"] {
+  @apply text-[11px] font-semibold uppercase tracking-wide text-muted-foreground;
+}
+
+main [data-slot="table-row"] {
+  @apply transition-colors hover:bg-emerald-950/[0.025];
+}

@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { getStatusLabel } from '@/lib/constants'
+import { PageHero } from '@/components/shared/page-hero'
 
 interface Container {
   id: string
@@ -279,16 +280,7 @@ export default function ShippingTrackersView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Tracking navires
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Suivi rapide des BL, bookings et conteneurs via les portails officiels.
-          </p>
-        </div>
-        <div className="relative w-full lg:w-[360px]">
+      <PageHero eyebrow="Visibilité maritime" title="Tracking navires" description="Suivi centralisé des BL, bookings, navires et conteneurs via les sources officielles." actions={<div className="relative w-full sm:w-[340px]">
           <Search
             size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
@@ -297,10 +289,9 @@ export default function ShippingTrackersView() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Rechercher BL, conteneur, navire..."
-            className="pl-9"
+            className="border-white/20 bg-white text-slate-900 pl-9"
           />
-        </div>
-      </div>
+        </div>} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-5">

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PageHero } from '@/components/shared/page-hero'
 
 type AuditItem = {
   id: string
@@ -82,15 +83,7 @@ export default function AuditView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Journal d’audit</h1>
-          <p className="text-sm text-muted-foreground">
-            Historique des actions système sur la plateforme.
-          </p>
-        </div>
-        <Badge variant="secondary">{items.length} entrée(s)</Badge>
-      </div>
+      <PageHero eyebrow="Traçabilité et conformité" title="Journal d’audit" description="Consultez l’historique complet des actions sensibles réalisées sur la plateforme." actions={<Badge className="border-white/20 bg-white/10 px-3 py-2 text-white hover:bg-white/10">{items.length} entrée(s)</Badge>} />
 
       <div className="space-y-3">
         {items.length === 0 ? (

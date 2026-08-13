@@ -41,6 +41,7 @@ import {
   ShieldAlert,
   Clock,
 } from 'lucide-react'
+import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───
 
@@ -377,20 +378,10 @@ export default function IncidentsList() {
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Incidents & Réclamations
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Suivi et résolution des incidents
-          </p>
-        </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
+      <PageHero eyebrow="Qualité et maîtrise des risques" title="Incidents & Réclamations" description="Déclarez, priorisez et résolvez chaque anomalie opérationnelle." actions={<Button type="button" onClick={() => setCreateOpen(true)}>
           <Plus size={16} className="mr-2" />
           Nouvel incident
-        </Button>
-      </div>
+        </Button>} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-xl">

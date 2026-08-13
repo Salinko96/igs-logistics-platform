@@ -39,6 +39,7 @@ import {
   Crown,
   Star,
 } from 'lucide-react'
+import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───
 
@@ -415,15 +416,9 @@ export default function ClientsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="page-heading">
-          <h1>{t('screen.clients')}</h1>
-          <p>Gérez les comptes, les contacts et la segmentation de votre portefeuille.</p>
-        </div>
-        <span className="w-fit rounded-md border border-border/80 bg-card px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      <PageHero eyebrow="Relation client" title={t('screen.clients')} description="Gérez les comptes, les contacts et la segmentation de votre portefeuille." actions={<span className="w-fit rounded-md border border-white/20 bg-white/10 px-3 py-2 text-xs font-medium text-white">
           {totalCount} comptes enregistrés
-        </span>
-      </div>
+        </span>} />
 
       {/* ─── Stats Row ─── */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

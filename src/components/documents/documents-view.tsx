@@ -38,6 +38,7 @@ import {
 import { PaginationFooter } from '@/components/shared/pagination-footer'
 import { ListPageSkeleton } from '@/components/shared/list-page-skeleton'
 import type { PaginationMeta } from '@/lib/pagination'
+import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───
 
@@ -291,20 +292,10 @@ export default function DocumentsView() {
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t('screen.documents')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Gestion et suivi des documents de transit
-          </p>
-        </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
+      <PageHero eyebrow="Espace documentaire" title={t('screen.documents')} description="Classement, conformité et suivi sécurisé des documents de transit." actions={<Button type="button" onClick={() => setCreateOpen(true)}>
           <Upload size={16} className="mr-2" />
           Charger un document
-        </Button>
-      </div>
+        </Button>} />
 
       <Dialog
         open={createOpen}

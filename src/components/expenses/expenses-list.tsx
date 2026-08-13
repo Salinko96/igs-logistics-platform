@@ -36,6 +36,7 @@ import {
   AlertOctagon,
   Plus,
 } from 'lucide-react'
+import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───
 
@@ -253,20 +254,10 @@ export default function ExpensesList({ initialFilter = 'all' }: { initialFilter?
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {t('screen.expenses')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Gestion des dépenses et débours de transit
-          </p>
-        </div>
-        <Button type="button" onClick={() => setCreateOpen(true)}>
+      <PageHero eyebrow="Contrôle des dépenses" title={t('screen.expenses')} description="Gérez les débours de transit, validations et justificatifs financiers." actions={<Button type="button" onClick={() => setCreateOpen(true)}>
           <Plus size={16} className="mr-2" />
           {t('action.newExpense')}
-        </Button>
-      </div>
+        </Button>} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-xl">

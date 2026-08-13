@@ -20,6 +20,7 @@ import { useAppStore } from '@/lib/store'
 import { readJson } from '@/lib/http'
 import type { ViewId } from '@/lib/store'
 import { cn } from '@/lib/utils'
+import { PageHero } from '@/components/shared/page-hero'
 
 interface NotificationItem {
   id: string
@@ -208,19 +209,9 @@ export default function NotificationsView() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Notifications
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Alertes opérationnelles, documents, factures et incidents.
-          </p>
-        </div>
-        <Badge variant="secondary" className="w-fit">
+      <PageHero eyebrow="Centre d’alertes" title="Notifications" description="Retrouvez les alertes opérationnelles, documents, factures et incidents à traiter." actions={<Badge className="w-fit border-white/20 bg-white/10 px-3 py-2 text-white hover:bg-white/10">
           {data?.unreadCount ?? 0} non lue(s)
-        </Badge>
-      </div>
+        </Badge>} />
 
       {openError ? (
         <p className="text-sm text-destructive">{openError}</p>
