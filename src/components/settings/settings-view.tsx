@@ -51,6 +51,9 @@ type ProfileRow = {
 
 function getRoleLabel(role: string) {
   const map: Record<string, string> = {
+    ADMIN: 'Administrateur',
+    AGENT: 'Agent opérationnel',
+    CLIENT: 'Client',
     dg: 'Directeur Général',
     do: 'Directeur des Opérations',
     daf: 'DAF',
@@ -137,7 +140,7 @@ export default function SettingsView() {
     lastName: '',
     email: '',
     phone: '',
-    role: 'agent_logistique',
+    role: 'AGENT',
   })
 
   const defaults = useMemo(() => {
@@ -203,7 +206,7 @@ export default function SettingsView() {
       await queryClient.invalidateQueries({ queryKey: ['settings'] })
       await queryClient.invalidateQueries({ queryKey: ['settings-profiles'] })
       setUserDialogOpen(false)
-      setUserForm({ firstName: '', lastName: '', email: '', phone: '', role: 'agent_logistique' })
+      setUserForm({ firstName: '', lastName: '', email: '', phone: '', role: 'AGENT' })
     } catch (error) {
       setUserError(error instanceof Error ? error.message : 'Erreur inconnue')
     } finally {
@@ -312,6 +315,11 @@ export default function SettingsView() {
                   </TableBody>
                 </Table>
               </div>
+              <div className="mt-5 grid gap-3 border-t pt-5 md:grid-cols-3">
+                <div className="rounded-lg border bg-muted/20 p-4"><p className="font-semibold">Administrateur</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Configuration, utilisateurs, abonnement, audit, finance et toutes les opérations. 2FA obligatoire.</p></div>
+                <div className="rounded-lg border bg-muted/20 p-4"><p className="font-semibold">Agent opérationnel</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Dossiers, clients, douane, documents, tracking, débours, facturation et incidents de son organisation.</p></div>
+                <div className="rounded-lg border bg-muted/20 p-4"><p className="font-semibold">Client</p><p className="mt-1 text-xs leading-5 text-muted-foreground">Portail isolé : ses dossiers et les documents explicitement partagés avec lui.</p></div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -333,16 +341,9 @@ export default function SettingsView() {
                 <Select value={userForm.role} onValueChange={(value) => setUserForm((s) => ({ ...s, role: value }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="dg">Directeur Général</SelectItem>
-                    <SelectItem value="do">Directeur des Opérations</SelectItem>
-                    <SelectItem value="daf">DAF</SelectItem>
-                    <SelectItem value="chef_maritime">Chef Maritime</SelectItem>
-                    <SelectItem value="chef_aerien">Chef Aérien</SelectItem>
-                    <SelectItem value="chef_terrestre">Chef Terrestre</SelectItem>
-                    <SelectItem value="agent_logistique">Agent Logistique</SelectItem>
-                    <SelectItem value="declarant">Déclarant en Douane</SelectItem>
-                    <SelectItem value="comptable">Comptable</SelectItem>
-                    <SelectItem value="commercial">Commercial</SelectItem>
+                    <SelectItem value="ADMIN">Administrateur</SelectItem>
+                    <SelectItem value="AGENT">Agent opérationnel</SelectItem>
+                    <SelectItem value="CLIENT">Client</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

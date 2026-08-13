@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
 
@@ -8,9 +8,15 @@ const API_CACHE_HEADERS = {
 }
 
 const getDashboardPayload = unstable_cache(
-  async (organizationId: string) => {
+  async (organizationId: string, fromValue = '', toValue = '') => {
     const now = new Date()
-    const firstMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    const parsedFrom = fromValue ? new Date(`${fromValue}T00:00:00.000Z`) : null
+    const parsedTo = toValue ? new Date(`${toValue}T23:59:59.999Z`) : null
+    const from = parsedFrom && !Number.isNaN(parsedFrom.getTime()) ? parsedFrom : null
+    const to = parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo : null
+    const firstMonth = from ?? new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    const lastMonth = to ?? now
+    const createdAt = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
     const organization = await db.organization.findFirst({
       where: { id: organizationId, isActive: true },
       select: { id: true },
@@ -38,7 +44,7 @@ const getDashboardPayload = unstable_cache(
     // Supabase's transaction pool is configured with connection_limit=1.
     // Keep these reads sequential so one dashboard request cannot exhaust it.
     const cases = await db.case.findMany({
-        where: { organizationId: organization.id, status: { not: 'annule' } },
+        where: { organizationId: organization.id, status: { not: 'annule' }, ...(createdAt ? { createdAt } : {}) },
         orderBy: { updatedAt: 'desc' },
         select: {
           id: true,
@@ -56,15 +62,15 @@ const getDashboardPayload = unstable_cache(
         },
       })
     const expensesForCounters = await db.expenseRequest.findMany({
-        where: { organizationId: organization.id, status: { in: ['en_validation', 'approuve', 'soumis'] } },
+        where: { organizationId: organization.id, status: { in: ['en_validation', 'approuve', 'soumis'] }, ...(createdAt ? { createdAt } : {}) },
         select: { id: true },
       })
     const invoicesForCounters = await db.invoice.findMany({
-        where: { organizationId: organization.id, status: { not: 'annulee' } },
+        where: { organizationId: organization.id, status: { not: 'annulee' }, ...(from || to ? { issuedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) },
         select: { status: true, netAmount: true, paidAmount: true, issuedAt: true },
       })
     const incidents = await db.incident.findMany({
-        where: { organizationId: organization.id },
+        where: { organizationId: organization.id, ...(createdAt ? { createdAt } : {}) },
         orderBy: { createdAt: 'desc' },
         select: {
           id: true,
@@ -126,8 +132,9 @@ const getDashboardPayload = unstable_cache(
     const recentIncidents = incidents.slice(0, 5)
 
     const revenueByMonth: { month: string; revenue: number }[] = []
-    for (let i = 5; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    const monthCount = Math.min(24, Math.max(1, (lastMonth.getUTCFullYear() - firstMonth.getUTCFullYear()) * 12 + lastMonth.getUTCMonth() - firstMonth.getUTCMonth() + 1))
+    for (let i = 0; i < monthCount; i++) {
+      const d = new Date(Date.UTC(firstMonth.getUTCFullYear(), firstMonth.getUTCMonth() + i, 1))
       const monthKey = d.toISOString().slice(0, 7)
       const revenue = recentRevenueInvoices.reduce((sum, invoice) => {
         if (!invoice.issuedAt) return sum
@@ -186,14 +193,16 @@ const getDashboardPayload = unstable_cache(
   { revalidate: 60 },
 )
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
     if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
-    const payload = await getDashboardPayload(profile.organizationId)
+    const from = request.nextUrl.searchParams.get('from') || ''
+    const to = request.nextUrl.searchParams.get('to') || ''
+    const payload = await getDashboardPayload(profile.organizationId, from, to)
     return NextResponse.json(payload, { headers: API_CACHE_HEADERS })
   } catch (error) {
     const message =

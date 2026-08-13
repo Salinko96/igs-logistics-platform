@@ -92,6 +92,9 @@ test.describe('parcours sécurisés sur base E2E dédiée', () => {
     const details = await orgA.get(`/api/invoices/${created.id}`)
     expect(details.status()).toBe(200)
     expect(created.invoiceNumber).toMatch(/^E2EA-\d{4}-\d{4}$/)
+    const globalSearch = await orgA.get(`/api/search?q=${encodeURIComponent(created.invoiceNumber)}`)
+    expect(globalSearch.status()).toBe(200)
+    expect((await globalSearch.json() as { invoices: Array<{ id: string }> }).invoices.some((item) => item.id === created.id)).toBeTruthy()
     await orgA.dispose()
   })
 
@@ -119,6 +122,16 @@ test.describe('parcours sécurisés sur base E2E dédiée', () => {
     await page.getByLabel('Mot de passe').fill(env.orgA.password)
     await page.getByRole('button', { name: /se connecter/i }).click()
     await page.waitForURL(/\/dashboard/)
+
+    await expect(page.getByRole('button', { name: 'Langue' })).toHaveCount(0)
+    await page.goto('/documents')
+    const refuseCookies = page.getByRole('button', { name: 'Tout refuser' })
+    if (await refuseCookies.isVisible()) await refuseCookies.click()
+    await expect(page.getByLabel('Rechercher un document')).toBeVisible({ timeout: 20_000 })
+    await page.goto('/rapports')
+    await expect(page.getByText('Période du rapport')).toBeVisible()
+    await expect(page.getByText('Date de début')).toBeVisible()
+    await page.goto('/dashboard')
 
     const closeMenu = page.getByRole('button', { name: 'Fermer le menu' })
     await expect(closeMenu).toBeHidden()

@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const query = request.nextUrl.searchParams.get('q')?.trim()
 
     if (!query || query.length < 2) {
-      return NextResponse.json({ cases: [], clients: [], documents: [] })
+      return NextResponse.json({ cases: [], clients: [], documents: [], invoices: [] })
     }
 
     const organization = await db.organization.findFirst({
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     })
 
     if (!organization) {
-      return NextResponse.json({ cases: [], clients: [], documents: [] })
+      return NextResponse.json({ cases: [], clients: [], documents: [], invoices: [] })
     }
 
     const cases = await db.case.findMany({
@@ -103,8 +103,28 @@ export async function GET(request: NextRequest) {
         orderBy: { updatedAt: 'desc' },
         take: RESULT_LIMIT,
       })
+    const invoices = await db.invoice.findMany({
+      where: {
+        organizationId: organization.id,
+        OR: [
+          { invoiceNumber: { contains: query, mode: 'insensitive' } },
+          { client: { name: { contains: query, mode: 'insensitive' } } },
+          { case: { reference: { contains: query, mode: 'insensitive' } } },
+          { purchaseOrderRef: { contains: query, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        status: true,
+        client: { select: { name: true } },
+        case: { select: { reference: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: RESULT_LIMIT,
+    })
 
-    return NextResponse.json({ cases, clients, documents })
+    return NextResponse.json({ cases, clients, documents, invoices })
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Erreur interne du serveur'

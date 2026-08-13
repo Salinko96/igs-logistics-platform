@@ -36,21 +36,22 @@ test('le refus des cookies ne charge pas Analytics', async ({ page }) => {
   const banner = page.getByRole('complementary', { name: 'Consentement aux cookies' })
   await expect(banner).toBeVisible()
   await banner.getByRole('button', { name: 'Tout refuser' }).click()
-  await expect(page.getByRole('button', { name: 'Gérer les cookies' })).toBeVisible()
+  await expect(banner).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Gérer les cookies' })).toHaveCount(0)
   await expect.poll(() => analyticsRequests.length).toBe(0)
   const cookie = await page.context().cookies()
   expect(cookie.find((item) => item.name === 'igs-cookie-consent')?.value).toContain('%22analytics%22%3Afalse')
 })
 
-test('les préférences cookies peuvent être modifiées', async ({ page }) => {
+test('le consentement enregistré ne réaffiche pas un contrôle flottant', async ({ page }) => {
   await page.goto('/login')
   await page.getByRole('complementary', { name: 'Consentement aux cookies' }).getByRole('button', { name: 'Personnaliser' }).click()
   await page.getByRole('switch', { name: 'Autoriser la mesure d’audience' }).check()
   await page.getByRole('button', { name: 'Enregistrer mon choix' }).click()
   await expect(page.getByRole('dialog', { name: 'Préférences de confidentialité' })).toBeHidden()
-  await page.getByRole('button', { name: 'Gérer les cookies' }).click()
-  await expect(page.getByRole('dialog', { name: 'Préférences de confidentialité' })).toBeVisible()
-  await expect(page.getByRole('switch', { name: 'Autoriser la mesure d’audience' })).toBeChecked()
+  await page.reload()
+  await expect(page.getByRole('complementary', { name: 'Consentement aux cookies' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Gérer les cookies' })).toHaveCount(0)
 })
 
 test('les routes privées redirigent les visiteurs', async ({ page, request }) => {

@@ -21,6 +21,7 @@ import { readJson } from '@/lib/http'
 import type { ViewId } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { PageHero } from '@/components/shared/page-hero'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface NotificationItem {
   id: string
@@ -101,6 +102,8 @@ export default function NotificationsView() {
   const queryClient = useQueryClient()
   const setUnreadCount = useAppStore((s) => s.setUnreadCount)
   const setView = useAppStore((s) => s.setView)
+  const [categoryFilter, setCategoryFilter] = React.useState('all')
+  const [readFilter, setReadFilter] = React.useState('all')
 
   const { data, isLoading, isError } = useQuery<NotificationsPayload>({
     queryKey: ['notifications'],
@@ -137,7 +140,30 @@ export default function NotificationsView() {
     },
   })
 
+  const markAllReadMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ markAll: true, isRead: true }),
+      })
+      if (!response.ok) throw new Error('Impossible de marquer les notifications comme lues')
+      return response.json()
+    },
+    onSuccess: (payload) => {
+      setUnreadCount(payload.unreadCount)
+      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+    },
+  })
+
   const notifications = data?.items ?? []
+  const categories = [...new Set(notifications.map((item) => item.category).filter(Boolean))] as string[]
+  const filteredNotifications = notifications.filter((item) => {
+    if (categoryFilter !== 'all' && item.category !== categoryFilter) return false
+    if (readFilter === 'unread' && item.isRead) return false
+    if (readFilter === 'read' && !item.isRead) return false
+    return true
+  })
   const [openError, setOpenError] = React.useState('')
 
   const handleOpen = async (notification: NotificationItem) => {
@@ -217,7 +243,15 @@ export default function NotificationsView() {
         <p className="text-sm text-destructive">{openError}</p>
       ) : null}
 
-      {notifications.length === 0 ? (
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}><SelectTrigger className="w-full sm:w-56"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Tous les types</SelectItem>{categories.map((category) => <SelectItem key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</SelectItem>)}</SelectContent></Select>
+          <Select value={readFilter} onValueChange={setReadFilter}><SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Toutes</SelectItem><SelectItem value="unread">Non lues</SelectItem><SelectItem value="read">Lues</SelectItem></SelectContent></Select>
+          <Button type="button" variant="outline" className="sm:ml-auto" disabled={!data?.unreadCount || markAllReadMutation.isPending} onClick={() => markAllReadMutation.mutate()}><CheckCircle2 className="mr-2 size-4" />{markAllReadMutation.isPending ? 'Mise à jour...' : 'Tout marquer comme lu'}</Button>
+        </div>
+      </Card>
+
+      {filteredNotifications.length === 0 ? (
         <Card className="p-12 text-center">
           <Bell
             size={42}
@@ -225,12 +259,12 @@ export default function NotificationsView() {
             className="mx-auto text-muted-foreground/40"
           />
           <p className="mt-3 text-sm text-muted-foreground">
-            Aucune notification pour le moment.
+            Aucune notification ne correspond aux filtres.
           </p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {notifications.map((notification) => {
+          {filteredNotifications.map((notification) => {
             const Icon = getNotificationIcon(notification)
             return (
               <Card

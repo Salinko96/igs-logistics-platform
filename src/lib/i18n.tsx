@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 
 export type Locale = 'fr' | 'en'
 
@@ -20,16 +20,9 @@ const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>('fr')
-  useEffect(() => {
-    const task = window.setTimeout(() => {
-      const stored = window.localStorage.getItem('igs-locale')
-      const cookie = document.cookie.match(/(?:^|; )igs-locale=(fr|en)/)?.[1]
-      const preferred = stored === 'en' || stored === 'fr' ? stored : cookie
-      if (preferred === 'en' || preferred === 'fr') setLocaleState(preferred)
-    }, 0)
-    return () => window.clearTimeout(task)
-  }, [])
   const setLocale = (next: Locale) => {
+    // English stays disabled until every operational workflow is translated.
+    if (next !== 'fr') return
     setLocaleState(next)
     window.localStorage.setItem('igs-locale', next)
     document.cookie = `igs-locale=${next}; path=/; max-age=31536000; samesite=lax`

@@ -38,6 +38,7 @@ import {
 import { PaginationFooter } from '@/components/shared/pagination-footer'
 import { ListPageSkeleton } from '@/components/shared/list-page-skeleton'
 import type { PaginationMeta } from '@/lib/pagination'
+import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { PageHero } from '@/components/shared/page-hero'
 
 // ─── Types ───
@@ -85,9 +86,13 @@ function getStatusColor(status: string): string {
 
 function getStatusLabel(status: string): string {
   const map: Record<string, string> = {
+    recu: 'Reçu',
     valide: 'Validé',
+    conforme: 'Conforme',
     en_attente: 'En attente',
+    en_verification: 'En vérification',
     rejete: 'Rejeté',
+    non_conforme: 'Non conforme',
   }
   return map[status] ?? status
 }
@@ -237,6 +242,8 @@ export default function DocumentsView() {
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [page, setPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [createBusy, setCreateBusy] = useState(false)
@@ -264,10 +271,11 @@ export default function DocumentsView() {
     isFetching,
     isError,
   } = useQuery<{ items: DocumentItem[]; pagination: PaginationMeta; summary: { validated: number; pending: number; rejected: number } }>({
-    queryKey: ['documents', categoryFilter, page],
+    queryKey: ['documents', categoryFilter, debouncedSearch, page],
     queryFn: async () => {
       const params = new URLSearchParams({ page: String(page), pageSize: '12' })
       if (categoryFilter !== 'all') params.set('category', categoryFilter)
+      if (debouncedSearch) params.set('search', debouncedSearch)
       const response = await fetch(`/api/documents?${params}`)
       if (!response.ok) throw new Error('Impossible de charger les documents')
       return response.json()
@@ -445,6 +453,11 @@ export default function DocumentsView() {
 
       {/* ─── Filter ─── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex w-full flex-col gap-3 sm:max-w-2xl sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1) }} placeholder="Nom, dossier ou mot-clé..." className="pl-9" aria-label="Rechercher un document" />
+          </div>
         <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setPage(1) }}>
           <SelectTrigger className="w-full sm:w-64">
             <FolderOpen size={16} className="mr-2 text-muted-foreground" />
@@ -459,6 +472,7 @@ export default function DocumentsView() {
             ))}
           </SelectContent>
         </Select>
+        </div>
         <p className="text-sm text-muted-foreground">
           {data?.pagination.total ?? 0} document{(data?.pagination.total ?? 0) > 1 ? 's' : ''}
         </p>
@@ -473,7 +487,7 @@ export default function DocumentsView() {
             className="mx-auto text-muted-foreground/40"
           />
           <p className="mt-3 text-sm text-muted-foreground">
-            Aucun document trouvé pour cette catégorie.
+            Aucun document ne correspond à votre recherche.
           </p>
         </Card>
       ) : (

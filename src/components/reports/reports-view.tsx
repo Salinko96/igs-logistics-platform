@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import jsPDF from 'jspdf'
 import { strToU8, zipSync } from 'fflate'
@@ -38,6 +38,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react'
 import { PageHero } from '@/components/shared/page-hero'
+import { Input } from '@/components/ui/input'
 
 // ─── Types ───
 
@@ -290,10 +291,13 @@ function KpiCard({ label, value, icon, iconBg, iconColor, subtext }: KpiCardProp
 // ─── Main Component ───
 
 export default function ReportsView() {
+  const now = new Date()
+  const [from, setFrom] = useState(`${now.getFullYear()}-01-01`)
+  const [to, setTo] = useState(now.toISOString().slice(0, 10))
   const { data } = useQuery<DashboardData>({
-    queryKey: ['dashboard'],
+    queryKey: ['reports', from, to],
     queryFn: async () => {
-      const response = await fetch('/api/dashboard')
+      const response = await fetch(`/api/dashboard?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
       if (!response.ok) throw new Error('Impossible de charger les rapports')
       return response.json()
     },
@@ -310,6 +314,7 @@ export default function ReportsView() {
   }))
   const reportRows = useMemo(() => buildReportRows(typeData, data?.totalRevenue ?? 0), [typeData, data?.totalRevenue])
   const metrics = [
+    `Période: ${new Intl.DateTimeFormat('fr-FR').format(new Date(`${from}T00:00:00`))} - ${new Intl.DateTimeFormat('fr-FR').format(new Date(`${to}T00:00:00`))}`,
     `Dossiers traités: ${data?.totalCases ?? 0}`,
     `CA annuel: ${formatGNF(data?.totalRevenue ?? 0)}`,
     `Dossiers urgents: ${data?.urgentCases ?? 0}`,
@@ -355,6 +360,15 @@ export default function ReportsView() {
             CSV
           </Button>
         </div>} />
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div><p className="text-sm font-semibold">Période du rapport</p><p className="text-xs text-muted-foreground">Les indicateurs, graphiques et exports utilisent cette période.</p></div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">Date de début<Input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} /></label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">Date de fin<Input type="date" value={to} min={from} onChange={(event) => setTo(event.target.value)} /></label>
+          </div>
+        </div>
+      </Card>
 
       {/* ─── KPI Summary Cards ─── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

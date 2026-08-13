@@ -36,6 +36,7 @@ import { useAppStore, type ViewId } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { pathForView } from '@/lib/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 
 interface NavItem {
   id: ViewId
@@ -71,10 +72,12 @@ function NavItemButton({
   item,
   collapsed,
   onClick,
+  onPrefetch,
 }: {
   item: NavItem
   collapsed: boolean
   onClick: () => void
+  onPrefetch: () => void
 }) {
   const { t } = useI18n()
   const currentView = useAppStore((s) => s.currentView)
@@ -85,6 +88,8 @@ function NavItemButton({
     <button
       type="button"
       onClick={onClick}
+      onMouseEnter={onPrefetch}
+      onFocus={onPrefetch}
       className={cn(
         'group relative flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200',
         collapsed && 'justify-center px-2',
@@ -135,6 +140,7 @@ function NavSection({
 }) {
   const setView = useAppStore((s) => s.setView)
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { t } = useI18n()
 
   const handleNav = (viewId: ViewId) => {
@@ -142,6 +148,15 @@ function NavSection({
     const path = pathForView(viewId)
     if (path) router.push(path)
     onNavigate?.(viewId)
+  }
+
+  const prefetchView = (viewId: ViewId) => {
+    const path = pathForView(viewId)
+    if (path) router.prefetch(path)
+    if (viewId === 'documents') void queryClient.prefetchQuery({ queryKey: ['documents', 'all', '', 1], queryFn: async () => (await fetch('/api/documents?page=1&pageSize=12')).json(), staleTime: 60_000 })
+    if (viewId === 'expenses') void queryClient.prefetchQuery({ queryKey: ['expenses'], queryFn: async () => (await fetch('/api/expenses')).json(), staleTime: 60_000 })
+    if (viewId === 'subscription') void queryClient.prefetchQuery({ queryKey: ['saas-subscription'], queryFn: async () => (await fetch('/api/saas/subscription')).json(), staleTime: 60_000 })
+    if (viewId === 'shipping-trackers') void queryClient.prefetchQuery({ queryKey: ['shipping-trackers'], queryFn: async () => (await fetch('/api/shipping-trackers')).json(), staleTime: 60_000 })
   }
 
   return (
@@ -160,6 +175,7 @@ function NavSection({
           item={item}
           collapsed={collapsed}
           onClick={() => handleNav(item.id)}
+          onPrefetch={() => prefetchView(item.id)}
         />
       ))}
     </div>

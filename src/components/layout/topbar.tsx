@@ -15,6 +15,7 @@ import {
   FileText,
   Loader2,
   Activity,
+  Receipt,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -31,7 +32,6 @@ import { useAppStore } from '@/lib/store'
 import { readJson } from '@/lib/http'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
-import { LanguageSwitcher } from '@/components/ui/language-switcher'
 
 const viewNames: Record<string, string> = {
   dashboard: 'nav.dashboard',
@@ -75,6 +75,13 @@ interface SearchPayload {
     status: string
     category: string
     case: { id: string; reference: string } | null
+  }>
+  invoices: Array<{
+    id: string
+    invoiceNumber: string
+    status: string
+    client: { name: string }
+    case: { reference: string } | null
   }>
 }
 
@@ -157,14 +164,14 @@ export function Topbar() {
         })
         if (!response.ok) throw new Error('Recherche indisponible')
         const payload = await response.json().catch(() => null)
-        if (!payload || !Array.isArray(payload.cases) || !Array.isArray(payload.clients) || !Array.isArray(payload.documents)) {
+        if (!payload || !Array.isArray(payload.cases) || !Array.isArray(payload.clients) || !Array.isArray(payload.documents) || !Array.isArray(payload.invoices)) {
           throw new Error('Recherche indisponible')
         }
         setResults(payload)
         setSearchOpen(true)
       } catch (error) {
         if (!controller.signal.aborted) {
-          setResults({ cases: [], clients: [], documents: [] })
+          setResults({ cases: [], clients: [], documents: [], invoices: [] })
           setSearchError('Recherche indisponible')
         }
       } finally {
@@ -182,7 +189,8 @@ export function Topbar() {
   const totalResults =
     (results?.cases.length ?? 0) +
     (results?.clients.length ?? 0) +
-    (results?.documents.length ?? 0)
+    (results?.documents.length ?? 0) +
+    (results?.invoices.length ?? 0)
 
   const closeSearch = () => {
     setSearchOpen(false)
@@ -321,6 +329,19 @@ export function Topbar() {
                     />
                   ))}
                 </SearchGroup>
+                <SearchGroup title='Factures' icon={<Receipt size={14} />}>
+                  {results?.invoices.map((item) => (
+                    <SearchItem
+                      key={item.id}
+                      title={item.invoiceNumber}
+                      description={[item.client.name, item.case?.reference, item.status].filter(Boolean).join(' · ')}
+                      onClick={() => {
+                        setView('invoices')
+                        closeSearch()
+                      }}
+                    />
+                  ))}
+                </SearchGroup>
               </div>
             )}
           </div>
@@ -328,7 +349,6 @@ export function Topbar() {
       </div>
 
       {/* Dark mode toggle */}
-      <LanguageSwitcher />
       <button
         type="button"
         onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

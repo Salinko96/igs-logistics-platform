@@ -98,10 +98,9 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
     const id = typeof body.id === 'string' ? body.id : null
     const isRead = Boolean(body.isRead)
+    const markAll = body.markAll === true
 
-    if (!id) {
-      return NextResponse.json({ error: 'Notification invalide' }, { status: 400 })
-    }
+    if (!id && !markAll) return NextResponse.json({ error: 'Notification invalide' }, { status: 400 })
 
     const organization = await db.organization.findFirst({
       where: { id: profile.organizationId, isActive: true },
@@ -114,8 +113,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updated = await db.notification.updateMany({
-      where: { 
-        id, 
+      where: {
+        ...(id ? { id } : { isRead: false }),
         organizationId: organization.id,
         OR: [
           { profileId: profile.id },
@@ -142,11 +141,9 @@ export async function PATCH(request: NextRequest) {
         })
       : 0
 
-    const item = await db.notification.findFirst({
-      where: { id, organizationId: organization.id },
-    })
+    const item = id ? await db.notification.findFirst({ where: { id, organizationId: organization.id } }) : null
 
-    return NextResponse.json({ item, unreadCount })
+    return NextResponse.json({ item, unreadCount, updatedCount: updated.count })
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Erreur interne du serveur'

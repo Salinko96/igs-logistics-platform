@@ -42,8 +42,16 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const search = searchParams.get('search')?.trim()
     if (category && category !== 'all') whereClause.category = category
-    if (search) whereClause.OR = [{ name: { contains: search, mode: 'insensitive' } }, { case: { reference: { contains: search, mode: 'insensitive' } } }]
+    if (search) whereClause.OR = [
+      { name: { contains: search, mode: 'insensitive' } },
+      { notes: { contains: search, mode: 'insensitive' } },
+      { category: { contains: search, mode: 'insensitive' } },
+      { fileType: { contains: search, mode: 'insensitive' } },
+      { case: { reference: { contains: search, mode: 'insensitive' } } },
+      { case: { client: { name: { contains: search, mode: 'insensitive' } } } },
+    ]
     const baseWhere: Prisma.DocumentWhereInput = { organizationId: organization.id, ...(profile.role === 'CLIENT' ? { sharedWithClient: true, case: { clientId: profile.clientId || '__none__' } } : {}) }
+    // The Supabase transaction pool uses one connection; sequential reads avoid pool contention.
     const documents = await db.document.findMany({ where: whereClause, include: { case: { select: { reference: true } } }, orderBy: { createdAt: 'desc' }, skip, take: pageSize })
     const total = await db.document.count({ where: whereClause })
     const validated = await db.document.count({ where: { ...baseWhere, status: { in: ['valide', 'conforme'] } } })

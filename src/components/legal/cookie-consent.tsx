@@ -59,7 +59,6 @@ export function CookieConsent() {
         <div className="flex flex-wrap gap-2 md:justify-end"><Button variant="ghost" className="border border-white/15 text-white hover:bg-white/10 hover:text-white" onClick={() => decide(false)}>Tout refuser</Button><Button variant="outline" className="border-white/20 bg-white/10 text-white hover:bg-white/20 hover:text-white" onClick={() => setSettingsOpen(true)}><Settings2 className="size-4" />Personnaliser</Button><Button onClick={() => decide(true)}>Tout accepter</Button></div>
       </div>
     </aside> : null}
-    {consent ? <button type="button" onClick={() => setSettingsOpen(true)} className="fixed bottom-3 left-3 z-40 inline-flex items-center gap-2 rounded-full border bg-background/95 px-3 py-2 text-xs font-medium shadow-lg backdrop-blur hover:bg-accent"><Cookie className="size-3.5" />Gérer les cookies</button> : null}
     <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
       <DialogContent className="max-w-lg">
         <DialogHeader><div className="mb-2 flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><ShieldCheck className="size-5" /></div><DialogTitle>Préférences de confidentialité</DialogTitle><DialogDescription>Choisissez les traceurs optionnels. Les cookies strictement nécessaires restent actifs.</DialogDescription></DialogHeader>

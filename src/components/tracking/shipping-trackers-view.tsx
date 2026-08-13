@@ -134,6 +134,21 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
+function trackingCoordinates(value: unknown): { latitude: number; longitude: number } | null {
+  const found: Array<{ latitude: number; longitude: number }> = []
+  const visit = (node: unknown) => {
+    if (!node || typeof node !== 'object') return
+    if (Array.isArray(node)) { node.forEach(visit); return }
+    const record = node as Record<string, unknown>
+    const latitude = Number(record.latitude ?? record.Latitude ?? record.lat ?? record.Lat)
+    const longitude = Number(record.longitude ?? record.Longitude ?? record.lng ?? record.lon ?? record.Lon)
+    if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) found.push({ latitude, longitude })
+    Object.values(record).forEach(visit)
+  }
+  visit(value)
+  return found.at(-1) ?? null
+}
+
 function TrackingSkeleton() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -158,6 +173,7 @@ export default function ShippingTrackersView() {
   const [fallbackUrl, setFallbackUrl] = useState('')
   const [manualBl, setManualBl] = useState('')
   const [manualCarrier, setManualCarrier] = useState('')
+  const coordinates = useMemo(() => trackingCoordinates(trackingResult), [trackingResult])
 
   const { data: shipments = [], isLoading, isError } = useQuery<Shipment[]>({
     queryKey: ['shipping-trackers'],
@@ -360,7 +376,8 @@ export default function ShippingTrackersView() {
       ) : null}
       {trackingResult ? (
         <Card className="border-primary/30 bg-primary/5 p-4">
-          <p className="text-sm font-semibold text-foreground">Résultat du tracking</p>
+          <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold text-foreground">Résultat du tracking</p><p className="text-xs text-muted-foreground">Données externes ShipsGo ou AISStream, à confirmer avant décision sensible.</p></div>{coordinates ? <Button asChild size="sm" variant="outline"><a href={`https://www.openstreetmap.org/?mlat=${coordinates.latitude}&mlon=${coordinates.longitude}#map=8/${coordinates.latitude}/${coordinates.longitude}`} target="_blank" rel="noreferrer">Voir la position sur la carte<ExternalLink className="ml-2 size-3.5" /></a></Button> : null}</div>
+          {coordinates ? <div className="relative mt-4 h-44 overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_55%_45%,#bde5dd_0_2%,transparent_2.5%),linear-gradient(135deg,#dff3ed,#b7d9d3)]"><div className="absolute inset-0 opacity-50 [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:32px_32px]" /><div className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"><span className="size-5 rounded-full border-4 border-white bg-primary shadow-lg" /><span className="mt-2 rounded-md bg-slate-950/80 px-2 py-1 font-mono text-[10px] text-white">{coordinates.latitude.toFixed(5)}, {coordinates.longitude.toFixed(5)}</span></div></div> : <p className="mt-3 rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Aucune coordonnée exploitable n’a été renvoyée pour cette référence. La carte n’est jamais simulée.</p>}
           <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
             {JSON.stringify(trackingResult, null, 2)}
           </pre>
