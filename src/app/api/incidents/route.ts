@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
 import { logAudit } from '@/lib/audit'
 import { getIncidentStatus } from '@/lib/constants'
+import { compareIncidentPriority, incidentNeedsAttention } from '@/lib/incidents'
 
 export const dynamic = 'force-dynamic'
 
@@ -48,7 +49,8 @@ export async function GET() {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(incidents, { headers: { 'Cache-Control': 'private, no-store' } })
+    const alertDelayDays = Math.max(1, Number(process.env.INCIDENT_STALE_ALERT_DAYS) || 3)
+    return NextResponse.json(incidents.sort(compareIncidentPriority).map((incident) => ({ ...incident, needsAttention: incidentNeedsAttention(incident, new Date(), alertDelayDays), alertDelayDays })), { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Erreur interne du serveur'

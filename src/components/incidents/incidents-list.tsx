@@ -42,6 +42,7 @@ import {
   Clock,
 } from 'lucide-react'
 import { PageHero } from '@/components/shared/page-hero'
+import { incidentProgress } from '@/lib/incidents'
 
 // ─── Types ───
 
@@ -55,6 +56,8 @@ interface Incident {
   createdAt: string
   updatedAt: string
   resolution: string | null
+  needsAttention: boolean
+  alertDelayDays: number
   case: { id: string; reference: string; client: { name: string } }
 }
 
@@ -84,10 +87,7 @@ function getIncidentStatusColor(status: string): string {
 }
 
 function getResolutionProgress(incident: Incident): number {
-  if (incident.status === 'resolu' || incident.status === 'cloture' || incident.status === 'clôturé') return 100
-  if (incident.status === 'ouvert') return 10
-  if (incident.status === 'en_cours') return 50
-  return 0
+  return incidentProgress(incident.status)
 }
 
 function getProgressColor(progress: number): string {
@@ -158,6 +158,7 @@ function IncidentCard({ incident }: IncidentCardProps) {
             {getSeverityLabel(incident.severity)}
           </Badge>
         </div>
+        {incident.needsAttention && <div role="alert" className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-2 text-xs font-medium text-red-800"><AlertTriangle size={14} />Progression sous 20 % depuis plus de {incident.alertDelayDays} jours</div>}
 
         {/* Badges Row */}
         <div className="mb-3 flex flex-wrap items-center gap-1.5">
@@ -368,6 +369,7 @@ export default function IncidentsList() {
   const criticalCount = incidents.filter(
     (i) => i.severity === 'critique'
   ).length
+  const attentionCount = incidents.filter((incident) => incident.needsAttention).length
 
   const filtered = incidents.filter((i) => {
     if (severityFilter !== 'all' && i.severity !== severityFilter) return false
@@ -470,6 +472,7 @@ export default function IncidentsList() {
           iconColor="text-red-600 dark:text-red-400"
         />
       </div>
+      {attentionCount > 0 && <div role="alert" className="flex items-center gap-3 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900"><AlertOctagon className="shrink-0" /><span><strong>{attentionCount} incident{attentionCount > 1 ? 's' : ''} en retard de traitement.</strong> Les incidents critiques et élevés non résolus sont affichés en premier.</span></div>}
 
       {/* ─── Filters ─── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { latestDate, rollingTwelveMonthRange } from '../../src/lib/reporting'
+import { compareIncidentPriority, incidentNeedsAttention } from '../../src/lib/incidents'
 import { calculateInvoice } from '../../src/lib/invoicing'
 import { missingLegalOrganizationFields } from '../../src/lib/organization'
 import { paginationMeta, parsePagination } from '../../src/lib/pagination'
@@ -13,6 +14,12 @@ describe('règles métier critiques', () => {
     const range = rollingTwelveMonthRange(anchor)
     assert.equal(range.from.toISOString().slice(0, 10), '2026-08-01')
     assert.equal(range.to.toISOString().slice(0, 10), '2027-07-15')
+  })
+  it('priorise et alerte les incidents critiques non traités', () => {
+    const oldCritical = { severity: 'critique', status: 'ouvert', createdAt: '2026-08-01T00:00:00Z' }
+    const recentMedium = { severity: 'moyen', status: 'en_cours', createdAt: '2026-08-12T00:00:00Z' }
+    assert.ok(compareIncidentPriority(oldCritical, recentMedium) < 0)
+    assert.equal(incidentNeedsAttention(oldCritical, new Date('2026-08-13T00:00:00Z'), 3), true)
   })
   it('applique TVA, remise et retenues sans erreur d’arrondi', () => {
     const invoice = calculateInvoice([
