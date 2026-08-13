@@ -48,10 +48,14 @@ export async function GET(request: NextRequest) {
     const total = await db.invoice.count({ where })
     const aggregate = await db.invoice.aggregate({ where: { ...baseWhere, status: { not: 'annulee' } }, _sum: { netAmount: true, paidAmount: true, amountPayable: true } })
     const overdue = await db.invoice.count({ where: { ...baseWhere, status: { notIn: ['annulee', 'payee'] }, dueDate: { lt: new Date() } } })
+    const dueSoonLimit = new Date()
+    dueSoonLimit.setDate(dueSoonLimit.getDate() + 7)
+    const dueSoon = await db.invoice.count({ where: { ...baseWhere, status: { notIn: ['annulee', 'payee'] }, dueDate: { gte: new Date(), lte: dueSoonLimit } } })
     const billed = aggregate._sum.netAmount ?? 0
     const collected = aggregate._sum.paidAmount ?? 0
     const payableTotal = aggregate._sum.amountPayable ?? billed
-    return NextResponse.json({ items: invoices, pagination: paginationMeta(total, page, pageSize), summary: { billed, collected, outstanding: Math.max(0, payableTotal - collected), overdue, legalIdentityComplete: missingLegalFields.length === 0, missingLegalFields } }, { headers: { 'Cache-Control': 'private, no-store' } })
+    const collectionAlertThreshold = Math.min(100, Math.max(0, Number(process.env.COLLECTION_ALERT_THRESHOLD_PERCENT) || 40))
+    return NextResponse.json({ items: invoices, pagination: paginationMeta(total, page, pageSize), summary: { billed, collected, outstanding: Math.max(0, payableTotal - collected), overdue, dueSoon, collectionAlertThreshold, legalIdentityComplete: missingLegalFields.length === 0, missingLegalFields } }, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur interne du serveur' }, { status: 500 })
   }
