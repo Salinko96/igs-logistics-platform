@@ -62,6 +62,7 @@ type DashboardData = {
   totalUnpaid: number
   invoicesOverdue: number
   incidentsOpen: number
+  reportPeriod: { from: string; to: string; mode: 'rolling12' | 'custom' } | null
 }
 
 // ─── Demo Data ───
@@ -291,17 +292,22 @@ function KpiCard({ label, value, icon, iconBg, iconColor, subtext }: KpiCardProp
 // ─── Main Component ───
 
 export default function ReportsView() {
-  const now = new Date()
-  const [from, setFrom] = useState(`${now.getFullYear()}-01-01`)
-  const [to, setTo] = useState(now.toISOString().slice(0, 10))
+  const [periodMode, setPeriodMode] = useState<'rolling12' | 'custom'>('rolling12')
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
   const { data } = useQuery<DashboardData>({
-    queryKey: ['reports', from, to],
+    queryKey: ['reports', periodMode, from, to],
     queryFn: async () => {
-      const response = await fetch(`/api/dashboard?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)
+      const params = periodMode === 'rolling12'
+        ? 'period=rolling12'
+        : `from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
+      const response = await fetch(`/api/dashboard?${params}`)
       if (!response.ok) throw new Error('Impossible de charger les rapports')
       return response.json()
     },
   })
+  const effectiveFrom = data?.reportPeriod?.from.slice(0, 10) ?? from
+  const effectiveTo = data?.reportPeriod?.to.slice(0, 10) ?? to
 
   const monthlyData = data?.revenueByMonth?.map((row) => ({
     month: new Date(`${row.month}-01`).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
@@ -314,7 +320,7 @@ export default function ReportsView() {
   }))
   const reportRows = useMemo(() => buildReportRows(typeData, data?.totalRevenue ?? 0), [typeData, data?.totalRevenue])
   const metrics = [
-    `Période: ${new Intl.DateTimeFormat('fr-FR').format(new Date(`${from}T00:00:00`))} - ${new Intl.DateTimeFormat('fr-FR').format(new Date(`${to}T00:00:00`))}`,
+    `Période: ${effectiveFrom ? new Intl.DateTimeFormat('fr-FR').format(new Date(`${effectiveFrom}T00:00:00`)) : '—'} - ${effectiveTo ? new Intl.DateTimeFormat('fr-FR').format(new Date(`${effectiveTo}T00:00:00`)) : '—'}`,
     `Dossiers traités: ${data?.totalCases ?? 0}`,
     `CA annuel: ${formatGNF(data?.totalRevenue ?? 0)}`,
     `Dossiers urgents: ${data?.urgentCases ?? 0}`,
@@ -362,10 +368,10 @@ export default function ReportsView() {
         </div>} />
       <Card className="p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div><p className="text-sm font-semibold">Période du rapport</p><p className="text-xs text-muted-foreground">Les indicateurs, graphiques et exports utilisent cette période.</p></div>
+          <div><p className="text-sm font-semibold">Période du rapport</p><p className="text-xs text-muted-foreground">Les indicateurs, graphiques et exports utilisent la même période.</p><Button type="button" variant={periodMode === 'rolling12' ? 'default' : 'outline'} size="sm" className="mt-2" onClick={() => setPeriodMode('rolling12')}>12 derniers mois d’activité</Button></div>
           <div className="grid grid-cols-2 gap-3">
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">Date de début<Input type="date" value={from} max={to} onChange={(event) => setFrom(event.target.value)} /></label>
-            <label className="grid gap-1 text-xs font-medium text-muted-foreground">Date de fin<Input type="date" value={to} min={from} onChange={(event) => setTo(event.target.value)} /></label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">Date de début<Input type="date" value={periodMode === 'rolling12' ? effectiveFrom : from} max={periodMode === 'rolling12' ? effectiveTo : to} onChange={(event) => { setPeriodMode('custom'); setFrom(event.target.value); if (!to) setTo(effectiveTo) }} /></label>
+            <label className="grid gap-1 text-xs font-medium text-muted-foreground">Date de fin<Input type="date" value={periodMode === 'rolling12' ? effectiveTo : to} min={periodMode === 'rolling12' ? effectiveFrom : from} onChange={(event) => { setPeriodMode('custom'); setTo(event.target.value); if (!from) setFrom(effectiveFrom) }} /></label>
           </div>
         </div>
       </Card>
@@ -375,13 +381,13 @@ export default function ReportsView() {
         <KpiCard
           label="Dossiers traités"
           value={data?.totalCases ?? 0}
-          subtext="cette année"
+          subtext="sur la période"
           icon={<FolderOpen size={22} />}
           iconBg="bg-blue-100 dark:bg-blue-900/30"
           iconColor="text-blue-600 dark:text-blue-400"
         />
         <KpiCard
-          label="CA annuel"
+          label="Chiffre d’affaires"
           value={formatGNF(data?.totalRevenue ?? 0)}
           subtext="chiffre d'affaires"
           icon={<TrendingUp size={22} />}
@@ -412,7 +418,7 @@ export default function ReportsView() {
         <Card className="lg:col-span-2 p-6">
           <CardHeader className="p-0 pb-4">
             <CardTitle className="text-base">
-              Volume de dossiers par mois
+              Chiffre d’affaires mensuel (millions GNF)
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { latestDate, rollingTwelveMonthRange } from '../../src/lib/reporting'
 import { calculateInvoice } from '../../src/lib/invoicing'
 import { missingLegalOrganizationFields } from '../../src/lib/organization'
 import { paginationMeta, parsePagination } from '../../src/lib/pagination'
@@ -7,6 +8,12 @@ import { validatePassword } from '../../src/lib/security/password'
 import { getRequestId } from '../../src/lib/integrations/shipsgo-client'
 
 describe('règles métier critiques', () => {
+  it('ancre les douze mois glissants sur la dernière activité disponible', () => {
+    const anchor = latestDate([new Date('2026-08-13T00:00:00Z'), new Date('2027-07-15T00:00:00Z')])
+    const range = rollingTwelveMonthRange(anchor)
+    assert.equal(range.from.toISOString().slice(0, 10), '2026-08-01')
+    assert.equal(range.to.toISOString().slice(0, 10), '2027-07-15')
+  })
   it('applique TVA, remise et retenues sans erreur d’arrondi', () => {
     const invoice = calculateInvoice([
       { description: 'Transit maritime', quantity: 2, unitPrice: 500_000, discountRate: 10, taxRate: 18 },

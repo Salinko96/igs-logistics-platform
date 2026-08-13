@@ -2,21 +2,19 @@ import { unstable_cache } from 'next/cache'
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
+import { latestDate, rollingTwelveMonthRange } from '@/lib/reporting'
 
 const API_CACHE_HEADERS = {
   'Cache-Control': 'private, no-store',
 }
 
 const getDashboardPayload = unstable_cache(
-  async (organizationId: string, fromValue = '', toValue = '') => {
+  async (organizationId: string, fromValue = '', toValue = '', period = '') => {
     const now = new Date()
     const parsedFrom = fromValue ? new Date(`${fromValue}T00:00:00.000Z`) : null
     const parsedTo = toValue ? new Date(`${toValue}T23:59:59.999Z`) : null
-    const from = parsedFrom && !Number.isNaN(parsedFrom.getTime()) ? parsedFrom : null
-    const to = parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo : null
-    const firstMonth = from ?? new Date(now.getFullYear(), now.getMonth() - 5, 1)
-    const lastMonth = to ?? now
-    const createdAt = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
+    let from = parsedFrom && !Number.isNaN(parsedFrom.getTime()) ? parsedFrom : null
+    let to = parsedTo && !Number.isNaN(parsedTo.getTime()) ? parsedTo : null
     const organization = await db.organization.findFirst({
       where: { id: organizationId, isActive: true },
       select: { id: true },
@@ -39,8 +37,20 @@ const getDashboardPayload = unstable_cache(
         recentCases: [],
         recentIncidents: [],
         revenueByMonth: [],
+        reportPeriod: null,
       }
     }
+    if (period === 'rolling12') {
+      const latestCase = await db.case.findFirst({ where: { organizationId: organization.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+      const latestInvoice = await db.invoice.findFirst({ where: { organizationId: organization.id, issuedAt: { not: null } }, orderBy: { issuedAt: 'desc' }, select: { issuedAt: true } })
+      const latestIncident = await db.incident.findFirst({ where: { organizationId: organization.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
+      const rolling = rollingTwelveMonthRange(latestDate([latestCase?.createdAt, latestInvoice?.issuedAt, latestIncident?.createdAt], now))
+      from = rolling.from
+      to = rolling.to
+    }
+    const firstMonth = from ?? new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    const lastMonth = to ?? now
+    const createdAt = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
     // Supabase's transaction pool is configured with connection_limit=1.
     // Keep these reads sequential so one dashboard request cannot exhaust it.
     const cases = await db.case.findMany({
@@ -187,6 +197,7 @@ const getDashboardPayload = unstable_cache(
           : null,
       })),
       revenueByMonth,
+      reportPeriod: from && to ? { from: from.toISOString(), to: to.toISOString(), mode: period === 'rolling12' ? 'rolling12' : 'custom' } : null,
     }
   },
   ['igs-dashboard-v4'],
@@ -202,7 +213,8 @@ export async function GET(request: NextRequest) {
 
     const from = request.nextUrl.searchParams.get('from') || ''
     const to = request.nextUrl.searchParams.get('to') || ''
-    const payload = await getDashboardPayload(profile.organizationId, from, to)
+    const period = request.nextUrl.searchParams.get('period') || ''
+    const payload = await getDashboardPayload(profile.organizationId, from, to, period)
     return NextResponse.json(payload, { headers: API_CACHE_HEADERS })
   } catch (error) {
     const message =
