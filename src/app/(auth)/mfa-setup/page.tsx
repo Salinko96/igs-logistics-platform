@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { safeMfaDestination } from '@/lib/security/mfa-navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -13,6 +14,7 @@ const supabase = createClient()
 
 function MfaSetupForm() {
   const searchParams = useSearchParams()
+  const destination = safeMfaDestination(searchParams.get('next'))
   const [factorId, setFactorId] = useState('')
   const [qrCode, setQrCode] = useState('')
   const [secret, setSecret] = useState('')
@@ -59,7 +61,7 @@ function MfaSetupForm() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center"><ShieldCheck className="mx-auto mb-2 size-10 text-primary" /><CardTitle>Configurer le 2FA</CardTitle><CardDescription>Scannez le QR code avec Google Authenticator, 1Password ou une application équivalente.</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          {verified ? <><p className="text-center text-sm text-green-600">La double authentification est activée sur votre compte.</p><Button asChild className="w-full"><Link href={searchParams.get('next') || '/dashboard'}>Continuer</Link></Button></> : !factorId ? <Button className="w-full" onClick={enroll} disabled={busy}>{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}Générer le QR code</Button> : <>
+          {verified ? <><p className="text-center text-sm text-green-600">La double authentification est activée sur votre compte.</p><Button asChild className="w-full"><Link href={destination}>Continuer</Link></Button></> : !factorId ? <Button className="w-full" onClick={enroll} disabled={busy}>{busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}Générer le QR code</Button> : <>
             {qrCode ? <img src={qrCode} alt="QR code de configuration 2FA" className="mx-auto size-56 rounded border bg-white p-2" /> : null}
             <p className="text-center text-xs text-muted-foreground">Clé manuelle : <span className="font-mono">{secret}</span></p>
             <Input inputMode="numeric" maxLength={6} placeholder="Code à 6 chiffres" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))} disabled={busy} />
