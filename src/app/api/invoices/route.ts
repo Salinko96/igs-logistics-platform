@@ -30,6 +30,8 @@ export async function GET(request: NextRequest) {
     const baseWhere: Prisma.InvoiceWhereInput = profile.role === 'CLIENT'
       ? { organizationId: profile.organizationId, clientId: profile.clientId || '__none__' }
       : { organizationId: profile.organizationId }
+    const organization = await db.organization.findUnique({ where: { id: profile.organizationId }, select: { name: true, address: true, city: true, country: true, phone: true, email: true, taxId: true } })
+    const missingLegalFields = organization ? missingLegalOrganizationFields(organization) : ['Organisation']
     const { searchParams } = request.nextUrl
     const { page, pageSize, skip } = parsePagination(searchParams, 15)
     const status = searchParams.get('status')
@@ -49,7 +51,7 @@ export async function GET(request: NextRequest) {
     const billed = aggregate._sum.netAmount ?? 0
     const collected = aggregate._sum.paidAmount ?? 0
     const payableTotal = aggregate._sum.amountPayable ?? billed
-    return NextResponse.json({ items: invoices, pagination: paginationMeta(total, page, pageSize), summary: { billed, collected, outstanding: Math.max(0, payableTotal - collected), overdue } }, { headers: { 'Cache-Control': 'private, no-store' } })
+    return NextResponse.json({ items: invoices, pagination: paginationMeta(total, page, pageSize), summary: { billed, collected, outstanding: Math.max(0, payableTotal - collected), overdue, legalIdentityComplete: missingLegalFields.length === 0, missingLegalFields } }, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur interne du serveur' }, { status: 500 })
   }

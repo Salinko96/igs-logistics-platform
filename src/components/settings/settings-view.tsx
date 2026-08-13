@@ -19,6 +19,7 @@ import { useI18n } from '@/lib/i18n'
 import { PageHero } from '@/components/shared/page-hero'
 
 type SettingsPayload = {
+  legalIdentity: { complete: boolean; missingFields: string[] }
   organization: {
     name: string
     address: string | null
@@ -249,6 +250,7 @@ export default function SettingsView() {
               <CardDescription>Détails de votre entreprise et informations fiscales</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
+              {data && !data.legalIdentity.complete && <div role="alert" className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><p className="font-semibold">Identité légale incomplète</p><p className="mt-1">Toute émission de facture sera bloquée jusqu’à la saisie de : {data.legalIdentity.missingFields.join(', ')}.</p></div>}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field label="Raison sociale" value={fieldValue('name')} onChange={(value) => setForm((s) => ({ ...s, name: value }))} />
                 <Field label="Adresse" value={fieldValue('address')} onChange={(value) => setForm((s) => ({ ...s, address: value }))} />

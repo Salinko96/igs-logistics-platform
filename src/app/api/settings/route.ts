@@ -22,7 +22,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Aucune organisation active trouvée' }, { status: 404 })
     }
 
-    return NextResponse.json({ organization })
+    return NextResponse.json({ organization, legalIdentity: { complete: missingLegalOrganizationFields(organization).length === 0, missingFields: missingLegalOrganizationFields(organization) } })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erreur interne du serveur'
     return NextResponse.json({ error: message }, { status: 500 })
