@@ -33,5 +33,15 @@ describe('configurationStatus', () => {
     assert.equal(configurationStatus({ ...core, RESEND_API_KEY: 'key' }).integrations.transactionalEmail, false)
     assert.equal(configurationStatus({ ...core, RESEND_API_KEY: 'key', EMAIL_FROM: 'noreply@example.com' }).integrations.transactionalEmail, true)
     assert.equal(configurationStatus({ ...core, STRIPE_SECRET_KEY: 'key' }).integrations.stripe, false)
+    assert.equal(configurationStatus({
+      ...core,
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test',
+      STRIPE_SECRET_KEY: 'sk_test',
+      STRIPE_WEBHOOK_SECRET: 'whsec_test',
+      STRIPE_PRICE_STARTER_MONTHLY: 'price_1',
+      STRIPE_PRICE_STARTER_ANNUAL: 'price_2',
+      STRIPE_PRICE_BUSINESS_MONTHLY: 'price_3',
+      STRIPE_PRICE_BUSINESS_ANNUAL: 'price_4',
+    }).integrations.stripe, true)
   })
 })

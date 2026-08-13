@@ -10,5 +10,13 @@ export function getStripe() {
 }
 
 export function stripeConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_WEBHOOK_SECRET)
+  return Boolean(
+    process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+    && process.env.STRIPE_SECRET_KEY
+    && process.env.STRIPE_WEBHOOK_SECRET
+    && process.env.STRIPE_PRICE_STARTER_MONTHLY
+    && process.env.STRIPE_PRICE_STARTER_ANNUAL
+    && process.env.STRIPE_PRICE_BUSINESS_MONTHLY
+    && process.env.STRIPE_PRICE_BUSINESS_ANNUAL
+  )
 }
