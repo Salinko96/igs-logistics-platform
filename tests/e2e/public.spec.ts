@@ -54,6 +54,9 @@ test('les préférences cookies peuvent être modifiées', async ({ page }) => {
 })
 
 test('les routes privées redirigent les visiteurs', async ({ page, request }) => {
+  const privateResponse = await request.get('/dossiers', { maxRedirects: 0 })
+  expect(privateResponse.status()).toBe(307)
+  expect(privateResponse.headers()['x-robots-tag']).toContain('noindex')
   await page.goto('/dossiers')
   await expect(page).toHaveURL(/\/login\?next=%2Fdossiers/)
   for (const endpoint of ['/api/cases', '/api/documents', '/api/invoices']) {

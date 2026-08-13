@@ -48,6 +48,14 @@ export async function proxy(request: NextRequest) {
   const isPortalRoute = path.startsWith('/portail') || path.startsWith('/portal')
   const isLoginRoute = path === '/login'
   const isMfaRoute = path === '/mfa-setup' || path === '/mfa-verify'
+  const privateRoute = isDashboardRoute || isWorkspaceRoute || isPortalRoute || isMfaRoute
+  const privateRedirect = (url: URL) => {
+    const redirect = NextResponse.redirect(url)
+    redirect.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
+    return redirect
+  }
+
+  if (privateRoute) response.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive')
 
   if (path === '/') {
     if (!user) {
@@ -60,11 +68,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  if (isDashboardRoute || isWorkspaceRoute || isPortalRoute || isMfaRoute) {
+  if (privateRoute) {
     if (!user) {
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('next', path)
-      return NextResponse.redirect(loginUrl)
+      return privateRedirect(loginUrl)
     }
 
     if (!isMfaRoute) {
@@ -73,28 +81,28 @@ export async function proxy(request: NextRequest) {
       if (role === 'ADMIN' && assurance?.nextLevel !== 'aal2') {
         const setupUrl = new URL('/mfa-setup', request.url)
         setupUrl.searchParams.set('next', path)
-        return NextResponse.redirect(setupUrl)
+        return privateRedirect(setupUrl)
       }
       if (role === 'ADMIN' && assurance?.currentLevel !== 'aal2') {
         const mfaUrl = new URL('/mfa-verify', request.url)
         mfaUrl.searchParams.set('next', path)
-        return NextResponse.redirect(mfaUrl)
+        return privateRedirect(mfaUrl)
       }
       if (assurance?.currentLevel === 'aal1' && assurance.nextLevel === 'aal2') {
         const mfaUrl = new URL('/mfa-verify', request.url)
         mfaUrl.searchParams.set('next', path)
-        return NextResponse.redirect(mfaUrl)
+        return privateRedirect(mfaUrl)
       }
     }
 
     const role = user.user_metadata?.role
 
     if ((isDashboardRoute || isWorkspaceRoute) && role === 'CLIENT') {
-      return NextResponse.redirect(new URL('/portail', request.url))
+      return privateRedirect(new URL('/portail', request.url))
     }
 
     if (isPortalRoute && (role === 'ADMIN' || role === 'AGENT')) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+      return privateRedirect(new URL('/dashboard', request.url))
     }
   }
 

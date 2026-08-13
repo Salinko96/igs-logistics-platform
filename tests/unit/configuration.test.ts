@@ -21,6 +21,7 @@ describe('configurationStatus', () => {
     assert.equal(status.coreReady, true)
     assert.equal(status.integrations.stripe, false)
     assert.equal(status.integrations.sentry, false)
+    assert.equal(status.integrations.legalIdentity, false)
   })
 
   it('accepte le nom ShipsGo officiel et le nom historique', () => {

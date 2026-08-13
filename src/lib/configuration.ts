@@ -24,6 +24,18 @@ export function configurationStatus(env: Environment = process.env) {
   const database = complete(env, ['DATABASE_URL', 'DIRECT_URL'])
   const shipsGo = present(env.SHIPSGO_AUTH_CODE) || present(env.SHIPSGO_API_KEY)
   const trackingFallback = validUrl(env.TRACKING_API_URL) && present(env.TRACKING_API_KEY)
+  const legalIdentity = complete(env, [
+    'NEXT_PUBLIC_LEGAL_PUBLISHER_NAME',
+    'NEXT_PUBLIC_LEGAL_FORM',
+    'NEXT_PUBLIC_LEGAL_CAPITAL',
+    'NEXT_PUBLIC_LEGAL_RCCM',
+    'NEXT_PUBLIC_LEGAL_TAX_ID',
+    'NEXT_PUBLIC_LEGAL_ADDRESS',
+    'NEXT_PUBLIC_LEGAL_PHONE',
+    'NEXT_PUBLIC_LEGAL_EMAIL',
+    'NEXT_PUBLIC_LEGAL_DIRECTOR',
+    'NEXT_PUBLIC_PRIVACY_EMAIL',
+  ])
 
   return {
     coreReady: database && supabase,
@@ -37,6 +49,7 @@ export function configurationStatus(env: Environment = process.env) {
       stripe: complete(env, ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']),
       orangeMoney: present(env.ORANGE_MONEY_MERCHANT_KEY),
       sentry: present(env.SENTRY_DSN) || present(env.NEXT_PUBLIC_SENTRY_DSN),
+      legalIdentity,
     },
   }
 }
