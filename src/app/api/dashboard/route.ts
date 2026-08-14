@@ -42,8 +42,7 @@ const getDashboardPayload = unstable_cache(
     }
     const rollingPeriod = period === 'rolling12'
     const createdAt = !rollingPeriod && (from || to) ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
-    // Supabase's transaction pool is configured with connection_limit=1.
-    // Keep these reads sequential so one dashboard request cannot exhaust it.
+    // Keep these reads sequential to leave capacity for concurrent page APIs.
     let cases = await db.case.findMany({
         where: { organizationId: organization.id, status: { not: 'annule' }, ...(createdAt ? { createdAt } : {}) },
         orderBy: { updatedAt: 'desc' },
