@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
 import { logAudit } from '@/lib/audit'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'EXPLOITANT', 'COMPTABLE', 'COMMERCIAL'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
@@ -42,7 +43,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'EXPLOITANT', 'COMPTABLE'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
@@ -102,10 +103,30 @@ export async function POST(request: NextRequest) {
       details: { amount: expense.amount, currency: expense.currency, category: expense.category },
       request,
     })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['COMPTABLE'], title: 'Débours à traiter', message: `${expense.description} · ${Math.round(expense.amount).toLocaleString('fr-FR')} GNF`, category: 'paiement', link: '/debours', excludeProfileId: profile.id })
 
     return NextResponse.json(expense, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Erreur interne du serveur'
     return NextResponse.json({ error: message }, { status: 500 })
   }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const { user, profile } = await getSessionProfile()
+    if (!user || !profile || !['ADMIN', 'COMPTABLE'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+    const body = await request.json().catch(() => ({}))
+    const id = typeof body.id === 'string' ? body.id : ''
+    const status = body.status === 'approuve' ? 'approuve' : body.status === 'rejete' ? 'rejete' : null
+    if (!id || !status) return NextResponse.json({ error: 'Débours et décision requis' }, { status: 400 })
+    const expense = await db.expenseRequest.findFirst({ where: { id, organizationId: profile.organizationId } })
+    if (!expense) return NextResponse.json({ error: 'Débours introuvable' }, { status: 404 })
+    if (!['soumis', 'en_validation'].includes(expense.status)) return NextResponse.json({ error: 'Ce débours a déjà été traité' }, { status: 409 })
+    const rejectionReason = typeof body.rejectionReason === 'string' ? body.rejectionReason.trim() : ''
+    if (status === 'rejete' && !rejectionReason) return NextResponse.json({ error: 'Le motif de rejet est obligatoire' }, { status: 400 })
+    const updated = await db.expenseRequest.update({ where: { id }, data: { status, approvedById: profile.id, approvedAt: new Date(), rejectionReason: status === 'rejete' ? rejectionReason : null } })
+    await logAudit({ organizationId: profile.organizationId, profileId: profile.id, action: status === 'approuve' ? 'expense_approved' : 'expense_rejected', entityType: 'expense', entityId: id, details: { amount: expense.amount, rejectionReason: rejectionReason || null }, request })
+    return NextResponse.json(updated)
+  } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur serveur' }, { status: 500 }) }
 }

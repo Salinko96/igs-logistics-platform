@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
 import { logAudit } from '@/lib/audit'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'COMMERCIAL'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
@@ -88,6 +89,8 @@ export async function POST(request: NextRequest) {
       data: {
         organizationId: organization.id,
         name,
+        commercialOwnerId: profile.role === 'COMMERCIAL' ? profile.id : (typeof body.commercialOwnerId === 'string' ? body.commercialOwnerId : null),
+        acronym: typeof body.acronym === 'string' ? body.acronym.trim() || null : null,
         type:
           typeof body.type === 'string' && body.type.trim()
             ? body.type.trim()
@@ -104,6 +107,10 @@ export async function POST(request: NextRequest) {
           typeof body.taxId === 'string' && body.taxId.trim()
             ? body.taxId.trim()
             : null,
+        rccm: typeof body.rccm === 'string' ? body.rccm.trim() || null : null,
+        whatsapp: typeof body.whatsapp === 'string' ? body.whatsapp.trim() || null : null,
+        commune: typeof body.commune === 'string' ? body.commune.trim() || null : null,
+        paymentTerms: ['comptant', '15j', '30j', '45j'].includes(body.paymentTerms) ? body.paymentTerms : null,
         address:
           typeof body.address === 'string' && body.address.trim()
             ? body.address.trim()
@@ -158,6 +165,7 @@ export async function POST(request: NextRequest) {
     })
 
     await logAudit({ organizationId: profile.organizationId, profileId: profile.id, action: 'create', entityType: 'client', entityId: client.id, details: { name: client.name }, request })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['EXPLOITANT', 'COMPTABLE'], title: 'Nouveau client', message: `${client.name} a été ajouté au référentiel IGS.`, category: 'client', link: '/clients', excludeProfileId: profile.id })
     return NextResponse.json(client, { status: 201 })
   } catch (error) {
     const message =

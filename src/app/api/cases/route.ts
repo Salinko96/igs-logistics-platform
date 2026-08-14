@@ -6,6 +6,7 @@ import { logAudit } from '@/lib/audit'
 import { assertSaaSQuota, quotaErrorResponse } from '@/lib/saas/usage'
 import { paginationMeta, parsePagination } from '@/lib/pagination'
 import type { Prisma } from '@prisma/client'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,9 +68,10 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort')
     const direction = searchParams.get('direction') === 'asc' ? 'asc' : 'desc'
     const orderBy: Prisma.CaseOrderByWithRelationInput = sort === 'reference' ? { reference: direction } : sort === 'createdAt' ? { createdAt: direction } : { updatedAt: direction }
-    const activeWhere: Prisma.CaseWhereInput = { organizationId: organization.id, status: { notIn: ['cloture', 'annule', 'brouillon'] }, ...(clientId ? { clientId } : {}) }
-    const urgentWhere: Prisma.CaseWhereInput = { organizationId: organization.id, priority: { in: ['urgente', 'critique'] }, status: { notIn: ['cloture', 'annule'] }, ...(clientId ? { clientId } : {}) }
-    const blockedWhere: Prisma.CaseWhereInput = { organizationId: organization.id, status: 'suspendu', ...(clientId ? { clientId } : {}) }
+    const roleScope = {}
+    const activeWhere: Prisma.CaseWhereInput = { organizationId: organization.id, status: { notIn: ['cloture', 'annule', 'brouillon'] }, ...(clientId ? { clientId } : {}), ...roleScope }
+    const urgentWhere: Prisma.CaseWhereInput = { organizationId: organization.id, priority: { in: ['urgente', 'critique'] }, status: { notIn: ['cloture', 'annule'] }, ...(clientId ? { clientId } : {}), ...roleScope }
+    const blockedWhere: Prisma.CaseWhereInput = { organizationId: organization.id, status: 'suspendu', ...(clientId ? { clientId } : {}), ...roleScope }
     const cases = await db.case.findMany({
         where,
         select: compact ? { id: true, reference: true, clientId: true } : {
@@ -101,7 +103,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
@@ -156,7 +158,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const commercialId =
+    const commercialId = profile.role === 'COMMERCIAL' ? profile.id :
       typeof body.commercialId === 'string' && body.commercialId.trim()
         ? body.commercialId.trim()
         : null
@@ -225,6 +227,7 @@ export async function POST(request: NextRequest) {
     })
 
     await logAudit({ organizationId: profile.organizationId, profileId: profile.id, action: 'create', entityType: 'case', entityId: caseRecord.id, details: { reference: caseRecord.reference, type: caseRecord.type }, request })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['EXPLOITANT', 'COMPTABLE', 'COMMERCIAL'], title: 'Nouveau dossier', message: `${caseRecord.reference} · ${caseRecord.client.name}`, category: 'dossier', link: `/dossiers?case=${caseRecord.id}`, excludeProfileId: profile.id })
     return NextResponse.json(caseRecord, { status: 201 })
   } catch (error) {
     const message =

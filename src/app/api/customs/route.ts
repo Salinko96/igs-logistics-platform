@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
 import { isValidHsCode } from '@/lib/customs/hs-codes'
 import { logAudit } from '@/lib/audit'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +25,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+    if (!user || !profile || !['ADMIN', 'AGENT', 'EXPLOITANT'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     const body = await request.json().catch(() => ({}))
     const caseId = typeof body.caseId === 'string' ? body.caseId.trim() : ''
     if (!caseId) return NextResponse.json({ error: 'Dossier requis' }, { status: 400 })
@@ -54,10 +55,16 @@ export async function POST(request: NextRequest) {
         vatAmount,
         gucegRef: typeof body.gucegRef === 'string' ? body.gucegRef.trim() : null,
         sydoniaRef: typeof body.sydoniaRef === 'string' ? body.sydoniaRef.trim() : null,
+        circuit: ['vert', 'jaune', 'rouge', 'bleu'].includes(body.circuit) ? body.circuit : null,
+        declarationNumber: typeof body.declarationNumber === 'string' ? body.declarationNumber.trim() || null : null,
+        liquidationNumber: typeof body.liquidationNumber === 'string' ? body.liquidationNumber.trim() || null : null,
+        paymentReceiptNumber: typeof body.paymentReceiptNumber === 'string' ? body.paymentReceiptNumber.trim() || null : null,
+        releaseNoteNumber: typeof body.releaseNoteNumber === 'string' ? body.releaseNoteNumber.trim() || null : null,
         notes: typeof body.notes === 'string' ? body.notes.trim() : null,
       },
     })
     await logAudit({ organizationId: profile.organizationId, profileId: profile.id, action: 'create', entityType: 'customs_declaration', entityId: declaration.id, details: { caseId, hsCode }, request })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['COMPTABLE', 'COMMERCIAL'], title: 'Déclaration douane créée', message: `${declaration.declarationNumber || declaration.sydoniaRef || 'Déclaration en préparation'}`, category: 'dossier', link: '/douane', excludeProfileId: profile.id })
     return NextResponse.json(declaration, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur interne du serveur' }, { status: 500 })

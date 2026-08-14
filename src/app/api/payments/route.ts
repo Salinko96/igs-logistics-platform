@@ -3,13 +3,15 @@ import { db } from '@/lib/db'
 import { getSessionProfile } from '@/lib/auth'
 import { isPaymentProvider } from '@/lib/integrations/payment'
 import { logAudit } from '@/lib/audit'
+import { authorizeApi } from '@/lib/rbac/server'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, profile } = await getSessionProfile()
-    if (!user || !profile) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    const auth = await authorizeApi('read', 'encaissements'); if (!auth.allowed) return auth.response
+    const { profile } = auth
     const invoiceId = request.nextUrl.searchParams.get('invoiceId')
     const payments = await db.payment.findMany({ where: { organizationId: profile.organizationId, ...(invoiceId ? { invoiceId } : {}) }, orderBy: { createdAt: 'desc' } })
     return NextResponse.json(payments)
@@ -20,8 +22,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+    const auth = await authorizeApi('create', 'encaissements'); if (!auth.allowed) return auth.response
+    const { profile } = auth
     const body = await request.json().catch(() => ({}))
     const invoiceId = typeof body.invoiceId === 'string' ? body.invoiceId.trim() : ''
     const amount = Number(body.amount)
@@ -32,9 +34,18 @@ export async function POST(request: NextRequest) {
     const payable = invoice.amountPayable > 0 ? invoice.amountPayable : invoice.netAmount
     if (amount > payable - invoice.paidAmount + 0.01) return NextResponse.json({ error: 'Le paiement dépasse le solde net à payer' }, { status: 400 })
     const provider = typeof body.provider === 'string' && isPaymentProvider(body.provider) ? body.provider : 'manuel'
-    const payment = await db.payment.create({ data: { organizationId: profile.organizationId, invoiceId, clientId: invoice.clientId, amount, currency: typeof body.currency === 'string' ? body.currency : invoice.currency, method: typeof body.method === 'string' ? body.method : null, provider, providerPaymentId: typeof body.providerPaymentId === 'string' ? body.providerPaymentId : null, reference: typeof body.reference === 'string' ? body.reference : null, notes: typeof body.notes === 'string' ? body.notes : null, status: provider === 'manuel' ? 'confirme' : 'en_attente', ...(provider === 'manuel' ? { confirmedById: profile.id, confirmedAt: new Date() } : {}) } })
+    const mobile = ['orange_money', 'mtn_money', 'chap_chap'].includes(provider)
+    const reference = typeof body.reference === 'string' ? body.reference.trim() : ''
+    const mobileNumber = typeof body.mobileNumber === 'string' ? body.mobileNumber.replace(/[\s-]/g, '') : ''
+    const receiptUrl = typeof body.receiptUrl === 'string' ? body.receiptUrl.trim() : ''
+    const paidAt = body.paidAt ? new Date(body.paidAt) : new Date()
+    if (!reference || Number.isNaN(paidAt.getTime())) return NextResponse.json({ error: 'Référence et date de paiement obligatoires' }, { status: 400 })
+    if (mobile && (!/^\+?224(620|622|655)\d{6}$/.test(mobileNumber) || !receiptUrl)) return NextResponse.json({ error: 'Mobile money : numéro +224 valide et justificatif obligatoires' }, { status: 400 })
+    const manuallyConfirmed = provider !== 'stripe'
+    const payment = await db.payment.create({ data: { organizationId: profile.organizationId, invoiceId, clientId: invoice.clientId, amount, currency: typeof body.currency === 'string' ? body.currency : invoice.currency, method: typeof body.method === 'string' ? body.method : null, provider, providerPaymentId: typeof body.providerPaymentId === 'string' ? body.providerPaymentId : null, reference, mobileNumber: mobileNumber || null, operator: mobile ? provider : null, paidAt, receiptUrl: receiptUrl || null, notes: typeof body.notes === 'string' ? body.notes : null, status: manuallyConfirmed ? 'confirme' : 'en_attente', ...(manuallyConfirmed ? { confirmedById: profile.id, confirmedAt: new Date() } : {}) } })
     if (payment.status === 'confirme') await db.invoice.update({ where: { id: invoiceId }, data: { paidAmount: { increment: amount }, status: invoice.paidAmount + amount >= payable - 0.01 ? 'payee' : 'partiellement_payee' } })
     await logAudit({ organizationId: profile.organizationId, profileId: profile.id, action: 'create', entityType: 'payment', entityId: payment.id, details: { amount, provider }, request })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['COMMERCIAL', 'EXPLOITANT'], title: 'Encaissement enregistré', message: `${Math.round(amount).toLocaleString('fr-FR')} GNF · ${reference}`, category: 'paiement', link: '/facturation', excludeProfileId: profile.id })
     return NextResponse.json(payment, { status: 201 })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur interne du serveur' }, { status: 500 })

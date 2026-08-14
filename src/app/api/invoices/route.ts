@@ -6,6 +6,7 @@ import { calculateInvoice, VAT_REGIMES, type InvoiceLineInput, type VatRegime } 
 import { missingLegalOrganizationFields } from '@/lib/organization'
 import { paginationMeta, parsePagination } from '@/lib/pagination'
 import type { Prisma } from '@prisma/client'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,7 +65,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || !['ADMIN', 'AGENT'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+    if (!user || !profile || !['ADMIN', 'AGENT', 'COMPTABLE', 'EXPLOITANT'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     const body = await request.json()
     const clientId = typeof body.clientId === 'string' ? body.clientId.trim() : ''
     if (!clientId) return NextResponse.json({ error: 'Sélectionnez un client' }, { status: 400 })
@@ -116,7 +117,7 @@ export async function POST(request: NextRequest) {
     const latest = await db.invoice.findFirst({ where: { organizationId: organization.id, invoiceNumber: { startsWith: `${prefix}-${year}-` } }, select: { invoiceNumber: true }, orderBy: { invoiceNumber: 'desc' } })
     const next = latest ? numberValue(latest.invoiceNumber.split('-').at(-1), 0) + 1 : 1
     const invoiceNumber = `${prefix}-${year}-${String(next).padStart(4, '0')}`
-    const status = INVOICE_STATUSES.includes(body.status) ? body.status : 'brouillon'
+    const status = profile.role === 'EXPLOITANT' ? 'brouillon' : INVOICE_STATUSES.includes(body.status) ? body.status : 'brouillon'
     const issuedAt = dateValue(body.issuedAt) || (status === 'brouillon' ? null : new Date())
 
     const invoice = await db.invoice.create({
@@ -136,6 +137,7 @@ export async function POST(request: NextRequest) {
       include: { organization: true, client: true, case: { select: { reference: true } }, payments: true, items: true },
     })
     await logAudit({ organizationId: profile.organizationId, profileId: profile.id, action: 'create', entityType: 'invoice', entityId: invoice.id, details: { invoiceNumber, amountPayable: totals.amountPayable, vatRegime }, request })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['COMPTABLE', 'COMMERCIAL'], title: profile.role === 'EXPLOITANT' ? 'Facture brouillon à valider' : 'Nouvelle facture', message: `${invoiceNumber} · ${Math.round(totals.amountPayable).toLocaleString('fr-FR')} GNF`, category: 'facture', link: '/facturation', excludeProfileId: profile.id })
     return NextResponse.json(invoice, { status: 201 })
   } catch (error) {
     const message = error instanceof Error && error.message.includes('Unique constraint') ? 'Le numéro de facture existe déjà. Réessayez.' : error instanceof Error ? error.message : 'Erreur interne du serveur'

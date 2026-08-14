@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Role-based upload permissions
-    const isStaff = profile.role === 'ADMIN' || profile.role === 'AGENT'
+    const isStaff = ['ADMIN', 'AGENT', 'EXPLOITANT'].includes(profile.role)
     if (!isStaff && profile.role === 'CLIENT') {
       if (!caseId) {
         return NextResponse.json(

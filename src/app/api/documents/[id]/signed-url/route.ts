@@ -47,7 +47,7 @@ export async function GET(
     }
 
     // Role-based access control
-    const isStaff = profile.role === 'ADMIN' || profile.role === 'AGENT'
+    const isStaff = ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'].includes(profile.role)
     const isClient = profile.role === 'CLIENT'
 
     if (isClient) {

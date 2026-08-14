@@ -337,6 +337,7 @@ function ClientsSkeleton() {
 export default function ClientsList() {
   const { t } = useI18n()
   const setView = useAppStore((s) => s.setView)
+  const role = useAppStore((s) => s.currentProfile?.role)
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [sectorFilter, setSectorFilter] = useState('all')
@@ -478,10 +479,10 @@ export default function ClientsList() {
         <Select value={sectorFilter} onValueChange={setSectorFilter}><SelectTrigger aria-label="Filtrer par secteur"><SelectValue placeholder="Secteur" /></SelectTrigger><SelectContent><SelectItem value="all">Tous les secteurs</SelectItem>{sectors.map((sector) => <SelectItem key={sector} value={sector}>{sector}</SelectItem>)}</SelectContent></Select>
         <Select value={cityFilter} onValueChange={setCityFilter}><SelectTrigger aria-label="Filtrer par ville"><SelectValue placeholder="Ville" /></SelectTrigger><SelectContent><SelectItem value="all">Toutes les villes</SelectItem>{cities.map((city) => <SelectItem key={city} value={city}>{city}</SelectItem>)}</SelectContent></Select>
         <Select value={segmentFilter} onValueChange={setSegmentFilter}><SelectTrigger aria-label="Filtrer par segment"><SelectValue placeholder="Segment" /></SelectTrigger><SelectContent><SelectItem value="all">Tous les segments</SelectItem><SelectItem value="premium">Premium</SelectItem><SelectItem value="standard">Standard</SelectItem><SelectItem value="occasionnel">Occasionnel</SelectItem></SelectContent></Select>
-        <Button type="button" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
+        {['ADMIN', 'AGENT', 'COMMERCIAL'].includes(role || '') && <Button type="button" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
           <Plus size={16} className="mr-2" />
           {t('action.newClient')}
-        </Button>
+        </Button>}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

@@ -30,7 +30,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || !['ADMIN', 'AGENT'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+    if (!user || !profile || !['ADMIN', 'AGENT', 'COMPTABLE'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     const { id } = await context.params
     const body = await request.json()
     const status = typeof body.status === 'string' ? body.status : ''

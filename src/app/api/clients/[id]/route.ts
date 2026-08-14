@@ -20,7 +20,7 @@ export async function GET(
       return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 })
     }
 
-    if (profile.role !== 'ADMIN' && profile.role !== 'AGENT' && profile.role !== 'CLIENT') {
+    if (!['ADMIN', 'AGENT', 'CLIENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
@@ -72,4 +72,24 @@ export async function GET(
       error instanceof Error ? error.message : 'Erreur interne du serveur'
     return NextResponse.json({ error: message }, { status: 500 })
   }
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user, profile } = await getSessionProfile()
+  if (!user || !profile || !['ADMIN', 'COMMERCIAL'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+  const { id } = await params; const body = await request.json().catch(() => ({}))
+  const client = await db.client.findFirst({ where: { id, organizationId: profile.organizationId } })
+  if (!client) return NextResponse.json({ error: 'Client non trouvé' }, { status: 404 })
+  const value = (key: string) => typeof body[key] === 'string' ? body[key].trim() || null : undefined
+  if (body.phone && !/^\+224(?:[\s-]?\d){9}$/.test(body.phone)) return NextResponse.json({ error: 'Téléphone +224 invalide' }, { status: 400 })
+  const updated = await db.client.update({ where: { id }, data: { name: value('name') || client.name, acronym: value('acronym'), taxId: value('taxId'), rccm: value('rccm'), phone: value('phone'), whatsapp: value('whatsapp'), email: value('email'), address: value('address'), commune: value('commune'), city: value('city') || client.city, sector: value('sector'), segment: value('segment'), paymentTerms: value('paymentTerms'), creditLimit: body.creditLimit == null ? undefined : Number(body.creditLimit), commercialOwnerId: profile.role === 'COMMERCIAL' ? profile.id : value('commercialOwnerId') } })
+  return NextResponse.json(updated)
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { user, profile } = await getSessionProfile()
+  if (!user || !profile || !['ADMIN', 'COMMERCIAL'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+  const { id } = await params
+  const updated = await db.client.updateMany({ where: { id, organizationId: profile.organizationId }, data: { isActive: false } })
+  return updated.count ? NextResponse.json({ success: true }) : NextResponse.json({ error: 'Client non trouvé' }, { status: 404 })
 }

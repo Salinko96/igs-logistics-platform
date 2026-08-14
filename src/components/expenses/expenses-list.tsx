@@ -37,6 +37,7 @@ import {
   Plus,
 } from 'lucide-react'
 import { PageHero } from '@/components/shared/page-hero'
+import { useAppStore } from '@/lib/store'
 
 // ─── Types ───
 
@@ -152,6 +153,7 @@ function ExpensesSkeleton() {
 export default function ExpensesList({ initialFilter = 'all' }: { initialFilter?: string }) {
   const { t } = useI18n()
   const queryClient = useQueryClient()
+  const role = useAppStore((state) => state.currentProfile?.role)
   const [statusFilter, setStatusFilter] = useState<string>(initialFilter === 'pending' ? 'pending' : 'all')
   const [createOpen, setCreateOpen] = useState(false)
   const [createBusy, setCreateBusy] = useState(false)
@@ -184,6 +186,12 @@ export default function ExpensesList({ initialFilter = 'all' }: { initialFilter?
 
   const [caseId, setCaseId] = useState<string>('')
   const selectedCaseId = caseId || cases[0]?.id || ''
+  const decide = async (id: string, status: 'approuve' | 'rejete') => {
+    const rejectionReason = status === 'rejete' ? window.prompt('Motif du rejet :')?.trim() : ''
+    if (status === 'rejete' && !rejectionReason) return
+    const response = await fetch('/api/expenses', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status, rejectionReason }) })
+    if (response.ok) await queryClient.invalidateQueries({ queryKey: ['expenses'] })
+  }
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -254,10 +262,10 @@ export default function ExpensesList({ initialFilter = 'all' }: { initialFilter?
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <PageHero eyebrow="Contrôle des dépenses" title={t('screen.expenses')} description="Gérez les débours de transit, validations et justificatifs financiers." actions={<Button type="button" onClick={() => setCreateOpen(true)}>
+      <PageHero eyebrow="Contrôle des dépenses" title={t('screen.expenses')} description="Gérez les débours de transit, validations et justificatifs financiers." actions={['ADMIN', 'AGENT', 'EXPLOITANT', 'COMPTABLE'].includes(role || '') ? <Button type="button" onClick={() => setCreateOpen(true)}>
           <Plus size={16} className="mr-2" />
           {t('action.newExpense')}
-        </Button>} />
+        </Button> : undefined} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-xl">
@@ -371,13 +379,14 @@ export default function ExpensesList({ initialFilter = 'all' }: { initialFilter?
                 <TableHead>Statut</TableHead>
                 <TableHead className="hidden sm:table-cell">Demandeur</TableHead>
                 <TableHead className="hidden lg:table-cell">Date</TableHead>
+                {['ADMIN', 'COMPTABLE'].includes(role || '') && <TableHead>Décision</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={8}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Aucun débours trouvé.
@@ -426,6 +435,7 @@ export default function ExpensesList({ initialFilter = 'all' }: { initialFilter?
                     <TableCell className="hidden lg:table-cell text-muted-foreground whitespace-nowrap">
                       {formatDate(expense.createdAt)}
                     </TableCell>
+                    {['ADMIN', 'COMPTABLE'].includes(role || '') && <TableCell>{['soumis', 'en_validation'].includes(expense.status) ? <div className="flex gap-2"><Button size="sm" onClick={() => void decide(expense.id, 'approuve')}>Valider</Button><Button size="sm" variant="outline" onClick={() => void decide(expense.id, 'rejete')}>Rejeter</Button></div> : '—'}</TableCell>}
                   </TableRow>
                 ))
               )}

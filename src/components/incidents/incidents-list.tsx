@@ -277,6 +277,7 @@ function IncidentsSkeleton() {
 
 export default function IncidentsList() {
   const queryClient = useQueryClient()
+  const role = useAppStore((s) => s.currentProfile?.role)
   const [severityFilter, setSeverityFilter] = useState<string>('all')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [createOpen, setCreateOpen] = useState(false)
@@ -380,10 +381,10 @@ export default function IncidentsList() {
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <PageHero eyebrow="Qualité et maîtrise des risques" title="Incidents & Réclamations" description="Déclarez, priorisez et résolvez chaque anomalie opérationnelle." actions={<Button type="button" onClick={() => setCreateOpen(true)}>
+      <PageHero eyebrow="Qualité et maîtrise des risques" title="Incidents & Réclamations" description="Déclarez, priorisez et résolvez chaque anomalie opérationnelle." actions={['ADMIN', 'AGENT', 'EXPLOITANT'].includes(role || '') ? <Button type="button" onClick={() => setCreateOpen(true)}>
           <Plus size={16} className="mr-2" />
           Nouvel incident
-        </Button>} />
+      </Button> : undefined} />
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-xl">

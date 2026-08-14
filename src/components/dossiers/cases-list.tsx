@@ -131,6 +131,7 @@ const TOP_STATUSES = [
 export default function CasesList({ filter }: CasesListProps) {
   const { t } = useI18n()
   const setView = useAppStore((s) => s.setView)
+  const role = useAppStore((s) => s.currentProfile?.role)
 
   // ── Local filter state ──
   const [search, setSearch] = useState(filter?.search || '')
@@ -213,14 +214,14 @@ export default function CasesList({ filter }: CasesListProps) {
   return (
     <div className="space-y-4">
       {/* ─── Header ─── */}
-      <PageHero eyebrow="Centre opérationnel" title={title} description="Centralisez les expéditions, priorités, blocages et responsabilités de chaque dossier." actions={<Button
+      <PageHero eyebrow="Centre opérationnel" title={title} description="Centralisez les expéditions, priorités, blocages et responsabilités de chaque dossier." actions={['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT'].includes(role || '') ? <Button
           type="button"
           onClick={() => setView('case-new')}
           className="shrink-0"
         >
           <Plus className="mr-2 size-4" />
           {t('action.newCase')}
-        </Button>} />
+        </Button> : undefined} />
 
       {/* ─── Filters Bar ─── */}
       <Card className="border-0 shadow-sm">

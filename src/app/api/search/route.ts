@@ -9,7 +9,7 @@ const RESULT_LIMIT = 5
 export async function GET(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 

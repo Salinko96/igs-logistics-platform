@@ -50,7 +50,7 @@ async function renderPdfPages(buffer: Buffer) {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'EXPLOITANT'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 

@@ -4,6 +4,7 @@ import { getSessionProfile } from '@/lib/auth'
 import { logAudit } from '@/lib/audit'
 import { getIncidentStatus } from '@/lib/constants'
 import { compareIncidentPriority, incidentNeedsAttention } from '@/lib/incidents'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
     if (!user || !profile) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
     }
+    if (!['ADMIN', 'AGENT', 'EXPLOITANT'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
 
     const body = await request.json()
     const title = typeof body.title === 'string' ? body.title.trim() : ''
@@ -128,6 +130,7 @@ export async function POST(request: NextRequest) {
       details: { type: incident.type, severity: incident.severity },
       request,
     })
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['COMPTABLE', 'COMMERCIAL'], title: `Incident ${incident.severity}`, message: `${incident.title}${incident.case?.reference ? ` · ${incident.case.reference}` : ''}`, category: 'incident', link: '/incidents', critical: incident.severity === 'critique', excludeProfileId: profile.id })
 
     return NextResponse.json(incident, { status: 201 })
   } catch (error) {

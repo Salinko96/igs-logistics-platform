@@ -22,6 +22,7 @@ import { ListPageSkeleton } from '@/components/shared/list-page-skeleton'
 import { PageHero } from '@/components/shared/page-hero'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import type { PaginationMeta } from '@/lib/pagination'
+import { useAppStore } from '@/lib/store'
 
 type Party = { name: string; address: string | null; city: string; country: string; phone: string | null; email: string | null; taxId: string | null }
 type InvoiceItem = { description: string; quantity: number; unit: string; unitPrice: number; discountRate: number; taxRate: number; taxAmount: number; total: number }
@@ -106,15 +107,17 @@ function StatCard({ label, value, detail, icon, tone, alert }: { label: string; 
   return <Card className={`overflow-hidden shadow-sm ${alert ? 'border-orange-300 bg-orange-50/40' : 'border-0'}`}><div className={`h-1 ${tone}`} /><div className="flex items-center gap-4 p-5"><div className="rounded-2xl bg-slate-100 p-3 text-slate-700">{icon}</div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><p className="text-xs font-semibold uppercase tracking-[.12em] text-muted-foreground">{label}</p>{alert && <Badge className="bg-orange-600 text-white">{alert}</Badge>}</div><p className="mt-1 text-xl font-bold">{value}</p><p className="text-xs text-muted-foreground">{detail}</p></div></div></Card>
 }
 
-function InvoiceDetail({ invoice, busy, onStatus, onPayment }: { invoice: Invoice; busy: boolean; onStatus: (invoice: Invoice, status: string) => void; onPayment: (invoice: Invoice) => void }) {
+function InvoiceDetail({ invoice, busy, onStatus, onPayment, canValidate }: { invoice: Invoice; busy: boolean; onStatus: (invoice: Invoice, status: string) => void; onPayment: (invoice: Invoice) => void; canValidate?: boolean }) {
+  const detailRole = useAppStore((state) => state.currentProfile?.role)
+  canValidate ??= ['ADMIN', 'COMPTABLE'].includes(detailRole || '')
   const remaining = Math.max(0, payable(invoice) - invoice.paidAmount)
   return <TableRow><TableCell colSpan={9} className="bg-slate-50/80 p-0"><div className="grid gap-6 p-5 lg:grid-cols-[1.4fr_.8fr]">
     <div><div className="mb-3 flex items-center justify-between"><h3 className="font-semibold">Détail de la facture</h3><div className="flex flex-wrap gap-2">
       <Button size="sm" variant="outline" onClick={() => { void downloadInvoice(invoice) }}><Download className="mr-2 h-4 w-4" />PDF</Button>
-      {invoice.status === 'brouillon' && <Button size="sm" disabled={busy} onClick={() => onStatus(invoice, 'emise')}><FileCheck2 className="mr-2 h-4 w-4" />Émettre</Button>}
-      {invoice.status === 'emise' && <Button size="sm" disabled={busy} onClick={() => onStatus(invoice, 'envoyee')}><Send className="mr-2 h-4 w-4" />Marquer envoyée</Button>}
-      {!['brouillon', 'payee', 'annulee'].includes(invoice.status) && remaining > 0 && <Button size="sm" onClick={() => onPayment(invoice)}><Banknote className="mr-2 h-4 w-4" />Encaisser</Button>}
-      {!['payee', 'annulee'].includes(invoice.status) && invoice.paidAmount === 0 && <Button size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => onStatus(invoice, 'annulee')}>Annuler</Button>}
+      {canValidate && invoice.status === 'brouillon' && <Button size="sm" disabled={busy} onClick={() => onStatus(invoice, 'emise')}><FileCheck2 className="mr-2 h-4 w-4" />Valider et émettre</Button>}
+      {canValidate && invoice.status === 'emise' && <Button size="sm" disabled={busy} onClick={() => onStatus(invoice, 'envoyee')}><Send className="mr-2 h-4 w-4" />Marquer envoyée</Button>}
+      {canValidate && !['brouillon', 'payee', 'annulee'].includes(invoice.status) && remaining > 0 && <Button size="sm" onClick={() => onPayment(invoice)}><Banknote className="mr-2 h-4 w-4" />Encaisser</Button>}
+      {canValidate && !['payee', 'annulee'].includes(invoice.status) && invoice.paidAmount === 0 && <Button size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => onStatus(invoice, 'annulee')}>Annuler</Button>}
     </div></div>
     <div className="overflow-hidden rounded-xl border bg-white"><Table><TableHeader><TableRow><TableHead>Prestation</TableHead><TableHead className="text-right">Qté</TableHead><TableHead className="text-right">Remise</TableHead><TableHead className="text-right">TVA</TableHead><TableHead className="text-right">Total HT</TableHead></TableRow></TableHeader><TableBody>{invoice.items.map((item, index) => <TableRow key={index}><TableCell><p className="font-medium">{item.description}</p><p className="text-xs text-muted-foreground">{money(item.unitPrice, invoice.currency)} / {item.unit}</p></TableCell><TableCell className="text-right">{item.quantity}</TableCell><TableCell className="text-right">{item.discountRate}%</TableCell><TableCell className="text-right">{item.taxRate}%</TableCell><TableCell className="text-right font-medium">{money(item.total, invoice.currency)}</TableCell></TableRow>)}</TableBody></Table></div>
     {invoice.vatLegalReference && <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><strong>Mention fiscale :</strong> {invoice.vatLegalReference}</p>}</div>
@@ -125,6 +128,7 @@ function InvoiceDetail({ invoice, busy, onStatus, onPayment }: { invoice: Invoic
 
 export default function InvoicesList({ initialSearch = '' }: { initialSearch?: string }) {
   const { t } = useI18n(); const queryClient = useQueryClient()
+  const role = useAppStore((state) => state.currentProfile?.role); const canDraft = ['ADMIN', 'AGENT', 'EXPLOITANT', 'COMPTABLE'].includes(role || ''); const canValidate = ['ADMIN', 'COMPTABLE'].includes(role || '')
   const [statusFilter, setStatusFilter] = useState('all'); const [search, setSearch] = useState(initialSearch); const [expandedId, setExpandedId] = useState<string | null>(null)
   const [page, setPage] = useState(1); const debouncedSearch = useDebouncedValue(search)
   const [createOpen, setCreateOpen] = useState(false); const [form, setForm] = useState<InvoiceForm>(initialForm); const [error, setError] = useState<string | null>(null); const [busy, setBusy] = useState(false)
@@ -149,7 +153,7 @@ export default function InvoicesList({ initialSearch = '' }: { initialSearch?: s
   if (isLoading) return <ListPageSkeleton cards={4} />
   if (isError) return <div className="flex min-h-80 flex-col items-center justify-center gap-3"><XCircle className="h-12 w-12 text-destructive" /><h2 className="text-xl font-semibold">Facturation indisponible</h2><p className="text-muted-foreground">Impossible de charger les factures.</p></div>
   return <div className="space-y-6">
-    <PageHero eyebrow="Finance et recouvrement" title={t('screen.invoices')} description="Factures professionnelles, fiscalité guinéenne configurable et suivi des encaissements." actions={<Button disabled={data?.summary.legalIdentityComplete === false} title={data?.summary.legalIdentityComplete === false ? 'Complétez les paramètres de l’organisation' : undefined} onClick={() => { setForm(initialForm()); setError(null); setCreateOpen(true) }}><Plus className="mr-2 h-4 w-4" />Nouvelle facture</Button>} />
+    <PageHero eyebrow="Finance et recouvrement" title={t('screen.invoices')} description="Factures professionnelles, fiscalité guinéenne configurable et suivi des encaissements." actions={canDraft ? <Button disabled={data?.summary.legalIdentityComplete === false} title={data?.summary.legalIdentityComplete === false ? 'Complétez les paramètres de l’organisation' : undefined} onClick={() => { setForm(initialForm()); setError(null); setCreateOpen(true) }}><Plus className="mr-2 h-4 w-4" />{role === 'EXPLOITANT' ? 'Préparer une facture' : 'Nouvelle facture'}</Button> : undefined} />
     {data?.summary.legalIdentityComplete === false && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900"><p className="font-semibold">Facturation bloquée : identité légale incomplète</p><p className="mt-1">Complétez dans Paramètres → Organisation : {data.summary.missingLegalFields.join(', ')}.</p></div>}
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><StatCard label="Chiffre facturé" value={money(billed)} detail="TTC hors annulations" icon={<TrendingUp />} tone="bg-cyan-600" /><StatCard label="Encaissé" value={money(collected)} detail={billed ? `${collectionRate} % du facturé` : 'Aucun encaissement'} icon={<CircleDollarSign />} tone="bg-emerald-500" /><StatCard label="À recouvrer" value={money(outstanding)} detail={`Seuil d’alerte : ${data?.summary.collectionAlertThreshold ?? 40} %`} alert={collectionAlert ? `Encaissement ${collectionRate} %` : undefined} icon={<Banknote />} tone={collectionAlert ? 'bg-orange-600' : 'bg-amber-500'} /><StatCard label="Échéances" value={String(overdue)} detail={`${data?.summary.dueSoon ?? 0} à échéance sous 7 jours`} alert={(data?.summary.dueSoon ?? 0) > 0 ? 'Relance à préparer' : undefined} icon={<AlertTriangle />} tone="bg-red-500" /></div>
     {error && !createOpen && !paymentInvoice && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}

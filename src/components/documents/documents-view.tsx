@@ -41,6 +41,7 @@ import { ListPageSkeleton } from '@/components/shared/list-page-skeleton'
 import type { PaginationMeta } from '@/lib/pagination'
 import { useDebouncedValue } from '@/lib/hooks/use-debounced-value'
 import { PageHero } from '@/components/shared/page-hero'
+import { useAppStore } from '@/lib/store'
 
 // ─── Types ───
 
@@ -252,6 +253,7 @@ function DocumentCard({ doc }: DocumentCardProps) {
 // ─── Main Component ───
 
 export default function DocumentsView() {
+  const role = useAppStore((state) => state.currentProfile?.role)
   const { t } = useI18n()
   const queryClient = useQueryClient()
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
@@ -351,10 +353,10 @@ export default function DocumentsView() {
   return (
     <div className="space-y-6">
       {/* ─── Title Row ─── */}
-      <PageHero eyebrow="Espace documentaire" title={t('screen.documents')} description="Classement, conformité et suivi sécurisé des documents de transit." actions={<Button type="button" onClick={() => setCreateOpen(true)}>
+      <PageHero eyebrow="Espace documentaire" title={t('screen.documents')} description="Classement, conformité et suivi sécurisé des documents de transit." actions={['ADMIN', 'AGENT', 'EXPLOITANT'].includes(role || '') ? <Button type="button" onClick={() => setCreateOpen(true)}>
           <Upload size={16} className="mr-2" />
           Charger un document
-        </Button>} />
+        </Button> : undefined} />
 
       <Dialog
         open={createOpen}

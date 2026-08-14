@@ -4,6 +4,7 @@ import { getSessionProfile } from '@/lib/auth'
 import { assertSaaSQuota, quotaErrorResponse } from '@/lib/saas/usage'
 import { paginationMeta, parsePagination } from '@/lib/pagination'
 import type { Prisma } from '@prisma/client'
+import { notifyRoles } from '@/lib/workflow-notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) {
+    if (!user || !profile || !['ADMIN', 'AGENT', 'EXPLOITANT', 'COMMERCIAL'].includes(profile.role)) {
       return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     }
 
@@ -116,6 +117,8 @@ export async function POST(request: NextRequest) {
       },
       include: { case: { select: { reference: true } } },
     })
+
+    await notifyRoles({ organizationId: profile.organizationId, roles: ['COMPTABLE', 'COMMERCIAL'], title: 'Document ajouté', message: `${document.name}${document.case?.reference ? ` · ${document.case.reference}` : ''}`, category: 'document', link: '/documents', excludeProfileId: profile.id })
 
     return NextResponse.json(document, { status: 201 })
   } catch (error) {

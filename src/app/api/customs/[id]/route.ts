@@ -7,7 +7,7 @@ import { logAudit } from '@/lib/audit'
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { user, profile } = await getSessionProfile()
-    if (!user || !profile || (profile.role !== 'ADMIN' && profile.role !== 'AGENT')) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
+    if (!user || !profile || !['ADMIN', 'AGENT', 'EXPLOITANT'].includes(profile.role)) return NextResponse.json({ error: 'Accès interdit' }, { status: 403 })
     const { id } = await params
     const existing = await db.customsDeclaration.findFirst({ where: { id, case: { organizationId: profile.organizationId } }, select: { id: true, caseId: true } })
     if (!existing) return NextResponse.json({ error: 'Déclaration introuvable' }, { status: 404 })
