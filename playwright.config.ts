@@ -20,7 +20,7 @@ export default defineConfig({
   projects: [
     { name: 'public-chromium', testMatch: /public\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
     { name: 'public-mobile', testMatch: /public\.spec\.ts/, use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true } },
-    { name: 'secure', testMatch: /secure\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
+    { name: 'secure', testMatch: /(secure|roles)\.spec\.ts/, use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: startLocalServer ? {
     command: 'node scripts/start-e2e-server.mjs',
