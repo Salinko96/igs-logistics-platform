@@ -32,6 +32,7 @@ const nextConfig: NextConfig = {
   transpilePackages: ["recharts"],
   serverExternalPackages: [
     "pdf-parse",
+    "@napi-rs/canvas",
     "tesseract.js",
     "@tesseract.js-data/eng",
     "@tesseract.js-data/fra",
@@ -42,6 +43,8 @@ const nextConfig: NextConfig = {
       "./node_modules/@tesseract.js-data/fra/4.0.0_best_int/fra.traineddata.gz",
       "./node_modules/tesseract.js/**/*",
       "./node_modules/tesseract.js-core/**/*",
+      "./node_modules/@napi-rs/canvas/**/*",
+      "./node_modules/@napi-rs/canvas-linux-x64-gnu/**/*",
     ],
   },
   images: { remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }] },
