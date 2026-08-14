@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     const collected = aggregate._sum.paidAmount ?? 0
     const payableTotal = aggregate._sum.amountPayable ?? billed
     const collectionAlertThreshold = Math.min(100, Math.max(0, Number(process.env.COLLECTION_ALERT_THRESHOLD_PERCENT) || 40))
-    return NextResponse.json({ items: invoices, pagination: paginationMeta(total, page, pageSize), summary: { billed, collected, outstanding: Math.max(0, payableTotal - collected), overdue, dueSoon, collectionAlertThreshold, legalIdentityComplete: missingLegalFields.length === 0, missingLegalFields } }, { headers: { 'Cache-Control': 'private, no-store' } })
+    return NextResponse.json({ items: invoices, pagination: paginationMeta(total, page, pageSize), summary: { billed, collected, outstanding: Math.max(0, payableTotal - collected), overdue, dueSoon, collectionAlertThreshold, legalIdentityComplete: missingLegalFields.length === 0, missingLegalFields, showFinancialSummary: ['ADMIN', 'AGENT', 'COMPTABLE'].includes(profile.role) } }, { headers: { 'Cache-Control': 'private, no-store' } })
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Erreur interne du serveur' }, { status: 500 })
   }

@@ -44,6 +44,7 @@ const viewTransition = {
 function ViewRouter() {
   const currentView = useAppStore((s) => s.currentView)
   const viewParams = useAppStore((s) => s.viewParams)
+  const role = useAppStore((s) => s.currentProfile?.role)
 
   let view: React.ReactNode
 
@@ -109,7 +110,7 @@ function ViewRouter() {
       view = <IncidentsList />
       break
     case 'reports':
-      view = <ReportsView />
+      view = ['ADMIN', 'AGENT'].includes(role || '') ? <ReportsView /> : <RoleDashboardView />
       break
     case 'settings':
       view = <SettingsView />
