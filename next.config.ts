@@ -30,6 +30,7 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   reactStrictMode: true,
   transpilePackages: ["recharts"],
+  serverExternalPackages: ["pdf-parse"],
   images: { remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }] },
   async headers() {
     return [

@@ -34,6 +34,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FolderOpen,
+  Sparkles,
 } from 'lucide-react'
 import { PaginationFooter } from '@/components/shared/pagination-footer'
 import { ListPageSkeleton } from '@/components/shared/list-page-skeleton'
@@ -52,6 +53,17 @@ interface DocumentItem {
   createdAt: string
   case: { reference: string } | null
   fileUrl?: string
+}
+
+interface DocumentAnalysisResult {
+  name: string
+  category: string
+  notes: string
+  confidence: number
+  source: 'pdf_text' | 'filename'
+  caseId?: string
+  caseReference?: string
+  warning?: string
 }
 
 // ─── Helpers ───
@@ -247,6 +259,8 @@ export default function DocumentsView() {
   const [page, setPage] = useState(1)
   const [createOpen, setCreateOpen] = useState(false)
   const [createBusy, setCreateBusy] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysis, setAnalysis] = useState<DocumentAnalysisResult | null>(null)
   const [createError, setCreateError] = useState<string | null>(null)
   const [form, setForm] = useState({
     name: '',
@@ -254,6 +268,42 @@ export default function DocumentsView() {
     caseId: '',
     notes: '',
   })
+
+  const analyzeSelectedFile = async (file: File) => {
+    setAnalyzing(true)
+    setAnalysis(null)
+    setCreateError(null)
+    try {
+      const body = new FormData()
+      body.append('file', file)
+      const response = await fetch('/api/documents/analyze', { method: 'POST', body })
+      const payload = await response.json().catch(() => ({})) as DocumentAnalysisResult & { error?: string }
+      if (!response.ok) throw new Error(payload.error || 'Analyse automatique indisponible')
+
+      setAnalysis(payload)
+      setForm((current) => ({
+        name: payload.name || current.name,
+        category: payload.category !== 'autre' ? payload.category : current.category,
+        caseId: payload.caseId || current.caseId,
+        notes: payload.notes
+          ? current.notes && !current.notes.includes(payload.notes)
+            ? `${current.notes}\n${payload.notes}`
+            : payload.notes
+          : current.notes,
+      }))
+    } catch (error) {
+      setAnalysis({
+        name: '',
+        category: 'autre',
+        notes: '',
+        confidence: 0,
+        source: 'filename',
+        warning: error instanceof Error ? error.message : 'Analyse automatique indisponible',
+      })
+    } finally {
+      setAnalyzing(false)
+    }
+  }
 
   const { data: cases = [] } = useQuery<Array<{ id: string; reference: string }>>({
     queryKey: ['document-cases'],
@@ -312,6 +362,8 @@ export default function DocumentsView() {
           setCreateOpen(open)
           if (!open && !createBusy) {
             setCreateError(null)
+            setAnalysis(null)
+            setAnalyzing(false)
             setForm({ name: '', category: '', caseId: '', notes: '' })
           }
         }}
@@ -320,10 +372,55 @@ export default function DocumentsView() {
           <DialogHeader>
             <DialogTitle>Charger un document</DialogTitle>
             <DialogDescription>
-              Sélectionnez le dossier concerné, puis ajoutez le fichier à l’espace documentaire sécurisé.
+              Ajoutez le fichier : son nom, sa catégorie, ses références et son dossier seront proposés automatiquement avant enregistrement.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-5">
+            <div className="grid gap-2">
+              <Label>Fichier à analyser</Label>
+              <FileUploadDropzone
+                caseId={form.caseId || null}
+                category={form.category || 'autre'}
+                documentName={form.name}
+                notes={form.notes}
+                autoUpload={false}
+                disabled={createBusy || analyzing}
+                uploadButtonLabel={analyzing ? 'Analyse en cours...' : 'Vérifier et enregistrer'}
+                onFileSelected={analyzeSelectedFile}
+                onUploadStart={() => {
+                  setCreateBusy(true)
+                  setCreateError(null)
+                }}
+                onUploadComplete={() => {
+                  setCreateBusy(false)
+                  setCreateOpen(false)
+                  setAnalysis(null)
+                  setForm({ name: '', category: '', caseId: '', notes: '' })
+                  void queryClient.invalidateQueries({ queryKey: ['documents'] })
+                }}
+                onError={(message) => {
+                  setCreateBusy(false)
+                  setCreateError(message)
+                }}
+              />
+              {analyzing ? (
+                <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary">
+                  <Sparkles className="size-4 animate-pulse" />
+                  Lecture du document et recherche du dossier associé...
+                </div>
+              ) : analysis ? (
+                <div className={`rounded-lg border px-3 py-2 text-sm ${analysis.confidence > 0 ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  <p className="flex items-center gap-2 font-medium">
+                    <Sparkles className="size-4" />
+                    {analysis.confidence > 0 ? `Préremplissage terminé · confiance ${analysis.confidence}%` : 'Préremplissage manuel nécessaire'}
+                  </p>
+                  {analysis.caseReference ? <p className="mt-1 text-xs">Dossier détecté : {analysis.caseReference}</p> : null}
+                  {analysis.warning ? <p className="mt-1 text-xs">{analysis.warning}</p> : null}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">PDF, PNG ou JPG. Les suggestions restent modifiables avant l’enregistrement.</p>
+              )}
+            </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="document-name">Nom du document</Label>
@@ -332,7 +429,7 @@ export default function DocumentsView() {
                   value={form.name}
                   onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
                   placeholder="Facultatif, nom du fichier par défaut"
-                  disabled={createBusy}
+                  disabled={createBusy || analyzing}
                 />
               </div>
               <div className="grid gap-2">
@@ -340,7 +437,7 @@ export default function DocumentsView() {
                 <Select
                   value={form.category || undefined}
                   onValueChange={(value) => setForm((s) => ({ ...s, category: value }))}
-                  disabled={createBusy}
+                  disabled={createBusy || analyzing}
                 >
                   <SelectTrigger><SelectValue placeholder="Choisir une catégorie" /></SelectTrigger>
                   <SelectContent>
@@ -354,7 +451,7 @@ export default function DocumentsView() {
               <Select
                 value={form.caseId || undefined}
                 onValueChange={(value) => setForm((s) => ({ ...s, caseId: value === 'none' ? '' : value }))}
-                disabled={createBusy}
+                disabled={createBusy || analyzing}
               >
                 <SelectTrigger><SelectValue placeholder="Aucun dossier sélectionné" /></SelectTrigger>
                 <SelectContent>
@@ -371,38 +468,12 @@ export default function DocumentsView() {
                 value={form.notes}
                 onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
                 placeholder="Informations utiles concernant ce document..."
-                disabled={createBusy}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>Fichier</Label>
-              <FileUploadDropzone
-                caseId={form.caseId || null}
-                category={form.category || 'autre'}
-                documentName={form.name}
-                notes={form.notes}
-                autoUpload={false}
-                disabled={createBusy}
-                uploadButtonLabel="Enregistrer le document"
-                onUploadStart={() => {
-                  setCreateBusy(true)
-                  setCreateError(null)
-                }}
-                onUploadComplete={() => {
-                  setCreateBusy(false)
-                  setCreateOpen(false)
-                  setForm({ name: '', category: '', caseId: '', notes: '' })
-                  void queryClient.invalidateQueries({ queryKey: ['documents'] })
-                }}
-                onError={(message) => {
-                  setCreateBusy(false)
-                  setCreateError(message)
-                }}
+                disabled={createBusy || analyzing}
               />
             </div>
             {createError ? <p className="text-sm text-destructive">{createError}</p> : null}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={createBusy}>Annuler</Button>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={createBusy || analyzing}>Annuler</Button>
             </DialogFooter>
           </div>
         </DialogContent>

@@ -7,8 +7,29 @@ import { missingLegalOrganizationFields } from '../../src/lib/organization'
 import { paginationMeta, parsePagination } from '../../src/lib/pagination'
 import { validatePassword } from '../../src/lib/security/password'
 import { getRequestId } from '../../src/lib/integrations/shipsgo-client'
+import { analyzeDocumentText } from '../../src/lib/documents/document-analysis'
 
 describe('règles métier critiques', () => {
+  it('préremplit un BL et ses références depuis le contenu du document', () => {
+    const analysis = analyzeDocumentText(
+      'scan.pdf',
+      'BILL OF LADING No MSCU123456789 Container MSCU1234567 Date 13/08/2026',
+    )
+    assert.equal(analysis.category, 'bl')
+    assert.equal(analysis.extracted.blNumber, 'MSCU123456789')
+    assert.deepEqual(analysis.extracted.containerNumbers, ['MSCU1234567'])
+    assert.match(analysis.name, /MSCU123456789/)
+    assert.ok(analysis.confidence >= 80)
+  })
+  it('détecte une facture commerciale et conserve son montant dans les observations', () => {
+    const analysis = analyzeDocumentText(
+      'invoice_client.pdf',
+      'COMMERCIAL INVOICE No INV-2026-0042 Total Amount USD 12,500.00',
+    )
+    assert.equal(analysis.category, 'facture_commerciale')
+    assert.equal(analysis.extracted.invoiceNumber, 'INV-2026-0042')
+    assert.match(analysis.notes, /12,500.00/)
+  })
   it('ancre les douze mois glissants sur la dernière activité disponible', () => {
     const anchor = latestDate([new Date('2026-08-13T00:00:00Z'), new Date('2027-07-15T00:00:00Z')])
     const range = rollingTwelveMonthRange(anchor)

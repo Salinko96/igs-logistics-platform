@@ -31,6 +31,7 @@ export interface FileUploadDropzoneProps {
   allowedTypes?: string[]
   uploadButtonLabel?: string
   onUploadStart?: () => void
+  onFileSelected?: (file: File) => void | Promise<void>
   onUploadComplete?: (result: UploadSuccessResult) => void
   onError?: (error: string) => void
   autoUpload?: boolean
@@ -57,6 +58,7 @@ export function FileUploadDropzone({
   allowedTypes = DEFAULT_ALLOWED_TYPES,
   uploadButtonLabel = 'Téléverser le document',
   onUploadStart,
+  onFileSelected,
   onUploadComplete,
   onError,
   autoUpload = true,
@@ -157,6 +159,7 @@ export function FileUploadDropzone({
       return
     }
     setSelectedFile(file)
+    void onFileSelected?.(file)
     if (autoUpload) {
       uploadFile(file)
     }

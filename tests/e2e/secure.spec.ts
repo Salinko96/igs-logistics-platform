@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test'
 import speakeasy from 'speakeasy'
+import { jsPDF } from 'jspdf'
 import { apiLogin, hasAdminEnvironment, hasSecureEnvironment, secureEnvironment } from './helpers'
 
 test.describe('parcours sécurisés sur base E2E dédiée', () => {
@@ -96,6 +97,45 @@ test.describe('parcours sécurisés sur base E2E dédiée', () => {
     expect(globalSearch.status()).toBe(200)
     expect((await globalSearch.json() as { invoices: Array<{ id: string }> }).invoices.some((item) => item.id === created.id)).toBeTruthy()
     await orgA.dispose()
+  })
+
+  test('un PDF préremplit automatiquement les informations du document', async ({ page }) => {
+    test.skip(!hasSecureEnvironment(), 'Configurer un compte agent E2E dédié.')
+    const env = secureEnvironment()
+    await page.goto('/login')
+    await page.getByLabel('Email').fill(env.orgA.email)
+    await page.getByLabel('Mot de passe').fill(env.orgA.password)
+    await page.getByRole('button', { name: /se connecter/i }).click()
+    await page.waitForURL(/\/dashboard/)
+
+    const casesResponse = await page.request.get('/api/cases?compact=true&pageSize=100')
+    const casesPayload = await casesResponse.json() as { items: Array<{ id: string; reference: string }> }
+    const targetCase = casesPayload.items.find((item) => item.id === env.orgACaseId) ?? casesPayload.items[0]
+    expect(targetCase).toBeTruthy()
+
+    const pdf = new jsPDF()
+    pdf.text([
+      'BILL OF LADING No MSCU987654321',
+      'Container MSCU1234567',
+      `Dossier ${targetCase.reference}`,
+      'Date 14/08/2026',
+    ], 20, 30)
+    const pdfBuffer = Buffer.from(pdf.output('arraybuffer'))
+
+    await page.goto('/documents')
+    await expect(page.getByRole('button', { name: 'Charger un document' })).toBeVisible({ timeout: 60_000 })
+    await page.getByRole('button', { name: 'Charger un document' }).click()
+    await page.locator('input[type="file"]').setInputFiles({
+      name: 'scan-bl.pdf',
+      mimeType: 'application/pdf',
+      buffer: pdfBuffer,
+    })
+
+    await expect(page.getByText(/Préremplissage terminé/)).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByLabel('Nom du document')).toHaveValue(/MSCU987654321/)
+    await expect(page.getByText(`Dossier détecté : ${targetCase.reference}`)).toBeVisible()
+    await expect(page.getByLabel('Observations')).toHaveValue(/MSCU1234567/)
+    await expect(page.getByRole('button', { name: /Vérifier et enregistrer/ })).toBeEnabled()
   })
 
   test('un administrateur doit vérifier puis atteint le niveau 2FA', async ({ page }) => {
