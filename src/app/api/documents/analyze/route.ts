@@ -8,9 +8,10 @@ import {
   analyzeDocumentText,
   normalizedDocumentValue,
 } from '@/lib/documents/document-analysis'
+import { recognizeDocumentImages } from '@/lib/documents/image-ocr'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30
+export const maxDuration = 60
 
 function inferMimeType(filename: string, contentType: string): string {
   if (contentType && ALLOWED_MIME_TYPES.includes(contentType.toLowerCase())) return contentType.toLowerCase()
@@ -31,6 +32,21 @@ async function extractPdfText(buffer: Buffer) {
   }
 }
 
+async function renderPdfPages(buffer: Buffer) {
+  const parser = new PDFParse({ data: new Uint8Array(buffer) })
+  try {
+    const result = await parser.getScreenshot({
+      first: 2,
+      desiredWidth: 1_800,
+      imageDataUrl: false,
+      imageBuffer: true,
+    })
+    return result.pages.map((page) => Buffer.from(page.data))
+  } finally {
+    await parser.destroy()
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { user, profile } = await getSessionProfile()
@@ -46,16 +62,37 @@ export async function POST(request: NextRequest) {
     const validation = validateFileMetadata(file.size, mimeType)
     if (!validation.valid) return NextResponse.json({ error: validation.error }, { status: 400 })
 
+    const fileBuffer = Buffer.from(await file.arrayBuffer())
     let content = ''
+    let source: 'pdf_text' | 'ocr' | 'filename' = 'filename'
+    let ocrConfidence: number | undefined
     let analysisWarning: string | undefined
     if (mimeType === 'application/pdf') {
       try {
-        content = await extractPdfText(Buffer.from(await file.arrayBuffer()))
+        content = await extractPdfText(fileBuffer)
+        if (content.trim().length >= 30) source = 'pdf_text'
       } catch {
-        analysisWarning = 'Le PDF semble scanné, protégé ou illisible. Les suggestions reposent sur le nom du fichier.'
+        content = ''
+      }
+      if (content.trim().length < 30) {
+        try {
+          const ocr = await recognizeDocumentImages(await renderPdfPages(fileBuffer))
+          content = ocr.text
+          ocrConfidence = ocr.confidence
+          source = content ? 'ocr' : 'filename'
+        } catch {
+          analysisWarning = 'Le PDF scanné n’a pas pu être OCRisé. Vérifiez les informations proposées.'
+        }
       }
     } else {
-      analysisWarning = 'L’OCR des images n’est pas activé. Les suggestions reposent sur le nom du fichier.'
+      try {
+        const ocr = await recognizeDocumentImages([fileBuffer])
+        content = ocr.text
+        ocrConfidence = ocr.confidence
+        source = content ? 'ocr' : 'filename'
+      } catch {
+        analysisWarning = 'L’image n’a pas pu être OCRisée. Vérifiez les informations proposées.'
+      }
     }
 
     const analysis = analyzeDocumentText(file.name, content)
@@ -94,8 +131,14 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ...analysis,
+      source,
       ...(matchedCase ? { caseId: matchedCase.id, caseReference: matchedCase.reference } : {}),
-      confidence: Math.min(99, analysis.confidence + (matchedCase ? 10 : 0)),
+      confidence: Math.min(99, Math.round(
+        source === 'ocr' && ocrConfidence != null
+          ? (analysis.confidence * 0.75) + (ocrConfidence * 0.25) + (matchedCase ? 10 : 0)
+          : analysis.confidence + (matchedCase ? 10 : 0),
+      )),
+      ...(ocrConfidence != null ? { ocrConfidence } : {}),
       warning: analysisWarning ?? analysis.warning,
     })
   } catch (error) {

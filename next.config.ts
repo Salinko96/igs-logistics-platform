@@ -30,7 +30,20 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   reactStrictMode: true,
   transpilePackages: ["recharts"],
-  serverExternalPackages: ["pdf-parse"],
+  serverExternalPackages: [
+    "pdf-parse",
+    "tesseract.js",
+    "@tesseract.js-data/eng",
+    "@tesseract.js-data/fra",
+  ],
+  outputFileTracingIncludes: {
+    "/api/documents/analyze": [
+      "./node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz",
+      "./node_modules/@tesseract.js-data/fra/4.0.0_best_int/fra.traineddata.gz",
+      "./node_modules/tesseract.js/**/*",
+      "./node_modules/tesseract.js-core/**/*",
+    ],
+  },
   images: { remotePatterns: [{ protocol: "https", hostname: "**.supabase.co" }] },
   async headers() {
     return [

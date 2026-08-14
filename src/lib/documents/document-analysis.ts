@@ -1,6 +1,6 @@
 import { DOCUMENT_CATEGORIES } from '@/lib/constants'
 
-export type DocumentAnalysisSource = 'pdf_text' | 'filename'
+export type DocumentAnalysisSource = 'pdf_text' | 'ocr' | 'filename'
 
 export interface ExtractedDocumentData {
   documentNumber?: string

@@ -60,7 +60,8 @@ interface DocumentAnalysisResult {
   category: string
   notes: string
   confidence: number
-  source: 'pdf_text' | 'filename'
+  source: 'pdf_text' | 'ocr' | 'filename'
+  ocrConfidence?: number
   caseId?: string
   caseReference?: string
   warning?: string
@@ -414,6 +415,7 @@ export default function DocumentsView() {
                     <Sparkles className="size-4" />
                     {analysis.confidence > 0 ? `Préremplissage terminé · confiance ${analysis.confidence}%` : 'Préremplissage manuel nécessaire'}
                   </p>
+                  {analysis.source === 'ocr' ? <p className="mt-1 text-xs">OCR autonome français/anglais · qualité {analysis.ocrConfidence ?? analysis.confidence}%</p> : null}
                   {analysis.caseReference ? <p className="mt-1 text-xs">Dossier détecté : {analysis.caseReference}</p> : null}
                   {analysis.warning ? <p className="mt-1 text-xs">{analysis.warning}</p> : null}
                 </div>
