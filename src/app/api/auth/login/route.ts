@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { db } from '@/lib/db'
 import { logAudit } from '@/lib/audit'
 import { checkLoginAllowed, clearLoginFailures, loginKey, recordLoginFailure } from '@/lib/security/login-throttle'
+import { canAccessPath, getHomePath } from '@/lib/rbac/permissions'
 
 function requestIp(request: NextRequest) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || request.headers.get('x-real-ip') || 'unknown'
@@ -31,7 +32,10 @@ export async function POST(request: NextRequest) {
   await clearLoginFailures(identifierHash)
   await logAudit({ organizationId: knownProfile.organizationId, profileId: knownProfile.id, action: 'login', entityType: 'auth', details: { assurance: 'aal1' }, request })
   const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-  const destination = typeof body.next === 'string' && body.next.startsWith('/') ? body.next : knownProfile.role === 'CLIENT' ? '/portail' : '/dashboard'
+  const requestedDestination = typeof body.next === 'string' && body.next.startsWith('/') ? body.next : null
+  const destination = requestedDestination && canAccessPath(knownProfile.role, requestedDestination)
+    ? requestedDestination
+    : getHomePath(knownProfile.role)
   const mfaSetupRequired = knownProfile.role === 'ADMIN' && assurance?.nextLevel !== 'aal2'
   const mfaVerificationRequired = knownProfile.role === 'ADMIN' || (assurance?.currentLevel === 'aal1' && assurance?.nextLevel === 'aal2')
 

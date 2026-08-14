@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { canAccessPath, getHomePath, isAppRole } from '@/lib/rbac/permissions'
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -44,7 +45,8 @@ export async function proxy(request: NextRequest) {
     '/douane', '/documents', '/debours', '/facturation', '/incidents', '/rapports',
     '/parametres', '/abonnement', '/notifications', '/journal-activite', '/onboarding',
   ])
-  const isWorkspaceRoute = protectedSections.has(path)
+  const isRoleWorkspace = ['/commercial', '/exploitant', '/comptable'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  const isWorkspaceRoute = protectedSections.has(path) || isRoleWorkspace
   const isPortalRoute = path.startsWith('/portail') || path.startsWith('/portal')
   const isLoginRoute = path === '/login'
   const isMfaRoute = path === '/mfa-setup' || path === '/mfa-verify'
@@ -61,11 +63,7 @@ export async function proxy(request: NextRequest) {
     if (!user) {
       return response
     }
-    const role = user.user_metadata?.role
-    if (role === 'CLIENT') {
-      return NextResponse.redirect(new URL('/portail', request.url))
-    }
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL(getHomePath(user.user_metadata?.role), request.url))
   }
 
   if (privateRoute) {
@@ -97,6 +95,10 @@ export async function proxy(request: NextRequest) {
 
     const role = user.user_metadata?.role
 
+    if (isAppRole(role) && !canAccessPath(role, path)) {
+      return privateRedirect(new URL(getHomePath(role), request.url))
+    }
+
     if ((isDashboardRoute || isWorkspaceRoute) && role === 'CLIENT') {
       return privateRedirect(new URL('/portail', request.url))
     }
@@ -107,11 +109,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isLoginRoute && user) {
-    const role = user.user_metadata?.role
-    if (role === 'CLIENT') {
-      return NextResponse.redirect(new URL('/portail', request.url))
-    }
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL(getHomePath(user.user_metadata?.role), request.url))
   }
 
   return response

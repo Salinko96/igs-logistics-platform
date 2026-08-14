@@ -14,19 +14,21 @@ datasource db {
 // ─── Organisation & Multi-tenant ───
 
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  logoUrl   String?
-  address   String?
-  city      String   @default("Conakry")
-  country   String   @default("Guinée")
-  phone     String?
-  email     String?
-  taxId     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logoUrl       String?
+  address       String?
+  city          String   @default("Conakry")
+  country       String   @default("Guinée")
+  phone         String?
+  email         String?
+  taxId         String?
+  rccm          String?
+  vatRegistered Boolean  @default(false)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   settings             OrganizationSettings?
   profiles             Profile[]
@@ -37,6 +39,7 @@ model Organization {
   incidents            Incident[]
   auditLogs            AuditLog[]
   opportunities        Opportunity[]
+  quotations           Quotation[]
   loginAttempts        LoginAttempt[]
   subscription         SaaSSubscription?
   subscriptionPayments SaaSSubscriptionPayment[]
@@ -166,6 +169,8 @@ model Profile {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   clientId       String?
+  agency         String    @default("Conakry")
+  site           String    @default("Conakry")
 
   organization     Organization      @relation(fields: [organizationId], references: [id])
   client           Client?           @relation(fields: [clientId], references: [id])
@@ -176,6 +181,8 @@ model Profile {
   commercialCases  Case[]            @relation("CaseCommercial")
   chefCases        Case[]            @relation("CaseServiceChef")
   expenseRequests  ExpenseRequest[]  @relation("ExpenseRequester")
+  ownedClients     Client[]          @relation("ClientCommercialOwner")
+  quotations       Quotation[]       @relation("QuotationCommercial")
 
   @@index([organizationId])
 }
@@ -183,34 +190,86 @@ model Profile {
 // ─── Clients & CRM ───
 
 model Client {
-  id             String   @id @default(cuid())
-  organizationId String
-  name           String
-  type           String   @default("entreprise") // entreprise, particulier, gouvernement
-  sector         String? // Importateur, Distributeur, Industriel, PME
-  segment        String? // Premium, Standard, Occasionnel
-  taxId          String?
-  address        String?
-  city           String   @default("Conakry")
-  country        String   @default("Guinée")
-  phone          String?
-  email          String?
-  website        String?
-  notes          String?
-  creditLimit    Float? // en GNF
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  acronym           String?
+  type              String   @default("entreprise") // entreprise, particulier, gouvernement
+  sector            String? // Importateur, Distributeur, Industriel, PME
+  segment           String? // Premium, Standard, Occasionnel
+  taxId             String?
+  rccm              String?
+  address           String?
+  city              String   @default("Conakry")
+  country           String   @default("Guinée")
+  phone             String?
+  whatsapp          String?
+  commune           String?
+  email             String?
+  website           String?
+  notes             String?
+  creditLimit       Float? // en GNF
+  paymentTerms      String? // comptant, 15j, 30j, 45j
+  commercialOwnerId String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  organization  Organization    @relation(fields: [organizationId], references: [id])
-  contacts      ClientContact[]
-  cases         Case[]
-  invoices      Invoice[]
-  payments      Payment[]
-  opportunities Opportunity[]
-  profiles      Profile[]
+  organization    Organization    @relation(fields: [organizationId], references: [id])
+  contacts        ClientContact[]
+  cases           Case[]
+  invoices        Invoice[]
+  payments        Payment[]
+  opportunities   Opportunity[]
+  profiles        Profile[]
+  commercialOwner Profile?        @relation("ClientCommercialOwner", fields: [commercialOwnerId], references: [id])
+  quotations      Quotation[]
 
   @@index([organizationId])
+  @@index([commercialOwnerId])
+}
+
+model Quotation {
+  id              String    @id @default(cuid())
+  organizationId  String
+  clientId        String
+  commercialId    String
+  caseId          String?
+  quotationNumber String
+  status          String    @default("brouillon") // brouillon, envoye, accepte, refuse, expire
+  currency        String    @default("GNF")
+  exchangeRateGnf Float     @default(1)
+  subtotal        Float
+  taxRate         Float     @default(18)
+  taxAmount       Float
+  totalAmount     Float
+  validUntil      DateTime?
+  notes           String?
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id])
+  client       Client          @relation(fields: [clientId], references: [id])
+  commercial   Profile         @relation("QuotationCommercial", fields: [commercialId], references: [id])
+  items        QuotationItem[]
+
+  @@unique([organizationId, quotationNumber])
+  @@index([organizationId, commercialId, status])
+  @@index([clientId])
+}
+
+model QuotationItem {
+  id          String @id @default(cuid())
+  quotationId String
+  description String
+  quantity    Float  @default(1)
+  unitPrice   Float
+  total       Float
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
 }
 
 model ClientContact {
@@ -521,6 +580,10 @@ model CustomsDeclaration {
   submittedAt          DateTime?
   clearedAt            DateTime?
   releaseNoteNumber    String?
+  circuit              String? // vert, jaune, rouge, bleu
+  liquidationNumber    String?
+  paymentReceiptNumber String?
+  removalAt            DateTime?
   notes                String?
   hsCode               String?
   hsDescription        String?
@@ -702,6 +765,10 @@ model Payment {
   notes             String?
   provider          String    @default("manuel")
   providerPaymentId String?
+  mobileNumber      String?
+  operator          String?
+  paidAt            DateTime?
+  receiptUrl        String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -823,4 +890,7 @@ enum app_role {
   ADMIN
   AGENT
   CLIENT
+  COMMERCIAL
+  EXPLOITANT
+  COMPTABLE
 }

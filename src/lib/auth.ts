@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from './supabase/server'
 import { db } from './db'
 import { app_role } from '@prisma/client'
+import { getHomePath } from './rbac/permissions'
 
 export async function getSessionProfile() {
   const supabase = await createClient()
@@ -80,4 +81,12 @@ export async function requireRole(...allowedRoles: app_role[]) {
   }
   
   return { user, profile }
+}
+
+export async function requireWorkspaceRole(...allowedRoles: app_role[]) {
+  const session = await getSessionProfile()
+  if (!session.user) redirect('/login')
+  if (!session.profile) redirect('/unauthorized')
+  if (!allowedRoles.includes(session.profile.role)) redirect(getHomePath(session.profile.role))
+  return { user: session.user, profile: session.profile }
 }
