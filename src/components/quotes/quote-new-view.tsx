@@ -1,0 +1,28 @@
+'use client'
+import { useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Plus, Trash2 } from 'lucide-react'
+import { calculateQuotation } from '@/lib/quotations'
+import { formatGNF } from '@/lib/constants'
+import { useAppStore } from '@/lib/store'
+import { PageHero } from '@/components/shared/page-hero'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+
+type Line = { description: string; quantity: string; unitPrice: string }
+const blank = (): Line => ({ description: '', quantity: '1', unitPrice: '' })
+export default function QuoteNewView() {
+  const setView = useAppStore((state) => state.setView); const queryClient = useQueryClient(); const [clientId, setClientId] = useState(''); const [currency, setCurrency] = useState('GNF'); const [rate, setRate] = useState('1'); const [notes, setNotes] = useState(''); const [lines, setLines] = useState<Line[]>([blank()]); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
+  const { data: clients = [] } = useQuery<Array<{ id: string; name: string }>>({ queryKey: ['quote-clients'], queryFn: async () => { const response = await fetch('/api/clients'); if (!response.ok) throw new Error('Clients indisponibles'); return response.json() } })
+  const totals = useMemo(() => calculateQuotation(lines.map((line) => ({ description: line.description, quantity: Number(line.quantity) || 0, unitPrice: Number(line.unitPrice) || 0 }))), [lines])
+  const submit = async () => { setBusy(true); setError(''); const response = await fetch('/api/quotes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, currency, exchangeRateGnf: Number(rate), notes, items: lines }) }); const payload = await response.json(); setBusy(false); if (!response.ok) return setError(payload.error || 'Création impossible'); await queryClient.invalidateQueries({ queryKey: ['quotes'] }); setView('quotes') }
+  return <div className="space-y-6"><PageHero eyebrow="NOUVEAU DEVIS" title="Chiffrage client" description="Montants GNF sans centimes, TVA normale Guinée à 18 %." />
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px]"><Card><CardContent className="space-y-5 p-6"><div className="grid gap-4 sm:grid-cols-2"><div><Label>Client *</Label><Select value={clientId} onValueChange={setClientId}><SelectTrigger><SelectValue placeholder="Choisir un client" /></SelectTrigger><SelectContent>{clients.map((client) => <SelectItem key={client.id} value={client.id}>{client.name}</SelectItem>)}</SelectContent></Select></div><div><Label>Devise</Label><Select value={currency} onValueChange={(value) => { setCurrency(value); if (value === 'GNF') setRate('1') }}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{['GNF', 'USD', 'EUR', 'CNY'].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div></div>{currency !== 'GNF' && <div><Label>1 {currency} en GNF *</Label><Input inputMode="numeric" value={rate} onChange={(event) => setRate(event.target.value)} /></div>}
+      <div className="space-y-3">{lines.map((line, index) => <div key={index} className="grid gap-3 rounded-xl border p-4 sm:grid-cols-[1fr_100px_160px_auto]"><Input placeholder="Prestation logistique" value={line.description} onChange={(event) => setLines((current) => current.map((item, i) => i === index ? { ...item, description: event.target.value } : item))} /><Input aria-label="Quantité" inputMode="decimal" value={line.quantity} onChange={(event) => setLines((current) => current.map((item, i) => i === index ? { ...item, quantity: event.target.value } : item))} /><Input aria-label="Prix unitaire" inputMode="numeric" placeholder="Prix HT" value={line.unitPrice} onChange={(event) => setLines((current) => current.map((item, i) => i === index ? { ...item, unitPrice: event.target.value } : item))} /><Button size="icon" variant="ghost" disabled={lines.length === 1} onClick={() => setLines((current) => current.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button></div>)}<Button variant="outline" onClick={() => setLines((current) => [...current, blank()])}><Plus className="mr-2 h-4 w-4" />Ajouter une prestation</Button></div><div><Label>Conditions et observations</Label><Textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Validité, périmètre, exonération éventuelle…" /></div>{error && <p className="text-sm text-destructive">{error}</p>}</CardContent></Card>
+      <Card className="h-fit"><CardContent className="space-y-3 p-6"><h2 className="font-semibold">Synthèse</h2><div className="flex justify-between"><span>HT</span><strong>{formatGNF(totals.subtotal)}</strong></div><div className="flex justify-between"><span>TVA (18 %)</span><strong>{formatGNF(totals.taxAmount)}</strong></div><div className="flex justify-between border-t pt-3 text-lg"><span>TTC</span><strong>{formatGNF(totals.totalAmount)}</strong></div>{currency !== 'GNF' && <div className="flex justify-between text-sm text-muted-foreground"><span>Équivalent GNF</span><span>{formatGNF(totals.totalAmount * Number(rate || 0))}</span></div>}<Button className="w-full" disabled={busy || !clientId} onClick={() => void submit()}>{busy ? 'Création…' : 'Enregistrer le devis'}</Button><Button variant="ghost" className="w-full" onClick={() => setView('quotes')}>Annuler</Button></CardContent></Card></div>
+  </div>
+}

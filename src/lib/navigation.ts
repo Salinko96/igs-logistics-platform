@@ -18,6 +18,9 @@ export const VIEW_PATHS: Partial<Record<ViewId, string>> = {
   subscription: '/abonnement',
   notifications: '/notifications',
   audit: '/journal-activite',
+  quotes: '/commercial/devis',
+  'quote-new': '/commercial/devis/nouveau',
+  payments: '/comptable/encaissements',
 }
 
 export const SECTION_VIEWS: Record<string, ViewId> = Object.fromEntries(

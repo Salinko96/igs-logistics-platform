@@ -28,7 +28,7 @@ export const PERMISSIONS: Record<AppRole, Partial<Record<PermissionResource, Per
   EXPLOITANT: {
     dashboard_role: R, clients: R, devis: R, dossiers: RU, transport: RU,
     douane_sydonia: RU, documents: CRUD, incidents: CRUD, debours: R,
-    rapports_ops: R,
+    facturation: ['create', 'read'], rapports_ops: R,
   },
   COMPTABLE: {
     dashboard_role: R, clients: R, devis: R, dossiers: R, transport: R,
@@ -53,9 +53,9 @@ export function can(role: AppRole | string | null | undefined, action: Permissio
 }
 
 export function getHomePath(role: AppRole | string | null | undefined) {
-  if (role === 'COMMERCIAL') return '/commercial'
-  if (role === 'EXPLOITANT') return '/exploitant'
-  if (role === 'COMPTABLE') return '/comptable'
+  if (role === 'COMMERCIAL') return '/travail/commercial'
+  if (role === 'EXPLOITANT') return '/travail/exploitant'
+  if (role === 'COMPTABLE') return '/travail/comptable'
   if (role === 'CLIENT') return '/portail'
   return '/dashboard'
 }
@@ -69,9 +69,9 @@ export function getWorkspaceLabel(role: AppRole | string | null | undefined) {
 }
 
 export const ROLE_VIEW_PATHS: Partial<Record<AppRole, Partial<Record<string, string>>>> = {
-  COMMERCIAL: { dashboard: '/commercial', clients: '/commercial/clients', quotes: '/commercial/devis', cases: '/commercial/dossiers', invoices: '/commercial/facturation' },
-  EXPLOITANT: { dashboard: '/exploitant', cases: '/exploitant/dossiers', maritime: '/exploitant/maritime', 'shipping-trackers': '/exploitant/tracking', aerien: '/exploitant/aerien', terrestre: '/exploitant/terrestre', douane: '/exploitant/douane', documents: '/exploitant/documents', incidents: '/exploitant/incidents', expenses: '/exploitant/debours' },
-  COMPTABLE: { dashboard: '/comptable', expenses: '/comptable/debours', invoices: '/comptable/facturation', payments: '/comptable/encaissements', reports: '/comptable/rapports', cases: '/comptable/dossiers' },
+  COMMERCIAL: { dashboard: '/travail/commercial', clients: '/travail/commercial/clients', quotes: '/travail/commercial/devis', cases: '/travail/commercial/dossiers', invoices: '/travail/commercial/facturation' },
+  EXPLOITANT: { dashboard: '/travail/exploitant', cases: '/travail/exploitant/dossiers', maritime: '/travail/exploitant/maritime', 'shipping-trackers': '/travail/exploitant/tracking', aerien: '/travail/exploitant/aerien', terrestre: '/travail/exploitant/terrestre', douane: '/travail/exploitant/douane', documents: '/travail/exploitant/documents', incidents: '/travail/exploitant/incidents', expenses: '/travail/exploitant/debours', invoices: '/travail/exploitant/facturation' },
+  COMPTABLE: { dashboard: '/travail/comptable', expenses: '/travail/comptable/debours', invoices: '/travail/comptable/facturation', payments: '/travail/comptable/encaissements', reports: '/travail/comptable/rapports', cases: '/travail/comptable/dossiers' },
 }
 
 export function pathForRoleView(role: AppRole | string | null | undefined, view: string, fallback?: string) {
@@ -79,6 +79,9 @@ export function pathForRoleView(role: AppRole | string | null | undefined, view:
 }
 
 export const ROUTE_ACCESS: Array<{ prefix: string; roles: AppRole[] }> = [
+  { prefix: '/travail/commercial', roles: ['COMMERCIAL', 'ADMIN'] },
+  { prefix: '/travail/exploitant', roles: ['EXPLOITANT', 'ADMIN'] },
+  { prefix: '/travail/comptable', roles: ['COMPTABLE', 'ADMIN'] },
   { prefix: '/commercial', roles: ['COMMERCIAL', 'ADMIN'] },
   { prefix: '/exploitant', roles: ['EXPLOITANT', 'ADMIN'] },
   { prefix: '/comptable', roles: ['COMPTABLE', 'ADMIN'] },
@@ -86,14 +89,14 @@ export const ROUTE_ACCESS: Array<{ prefix: string; roles: AppRole[] }> = [
   { prefix: '/abonnement', roles: ['ADMIN'] },
   { prefix: '/journal-activite', roles: ['ADMIN'] },
   { prefix: '/dashboard', roles: ['ADMIN', 'AGENT'] },
-  { prefix: '/facturation', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'COMPTABLE'] },
-  { prefix: '/debours', roles: ['ADMIN', 'AGENT', 'EXPLOITANT', 'COMPTABLE'] },
-  { prefix: '/douane', roles: ['ADMIN', 'AGENT', 'EXPLOITANT'] },
-  { prefix: '/tracking', roles: ['ADMIN', 'AGENT', 'EXPLOITANT'] },
-  { prefix: '/maritime', roles: ['ADMIN', 'AGENT', 'EXPLOITANT'] },
-  { prefix: '/aerien', roles: ['ADMIN', 'AGENT', 'EXPLOITANT'] },
-  { prefix: '/terrestre', roles: ['ADMIN', 'AGENT', 'EXPLOITANT'] },
-  { prefix: '/incidents', roles: ['ADMIN', 'AGENT', 'EXPLOITANT'] },
+  { prefix: '/facturation', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/debours', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/douane', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/tracking', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/maritime', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/aerien', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/terrestre', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
+  { prefix: '/incidents', roles: ['ADMIN', 'AGENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] },
 ]
 
 export function canAccessPath(role: AppRole | string | null | undefined, pathname: string) {

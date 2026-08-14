@@ -18,6 +18,8 @@ import {
   BarChart3,
   Settings,
   BadgeDollarSign,
+  FileSignature,
+  HandCoins,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -36,6 +38,7 @@ import { useAppStore, type ViewId } from '@/lib/store'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { pathForView } from '@/lib/navigation'
+import { getRoleLabel, getWorkspaceLabel, pathForRoleView } from '@/lib/rbac/permissions'
 import { useQueryClient } from '@tanstack/react-query'
 
 interface NavItem {
@@ -48,6 +51,7 @@ const navItems: NavItem[] = [
   { id: 'dashboard', label: 'nav.dashboard', icon: LayoutDashboard },
   { id: 'cases', label: 'nav.cases', icon: FolderOpen },
   { id: 'clients', label: 'nav.clients', icon: Building2 },
+  { id: 'quotes', label: 'Devis', icon: FileSignature },
 ]
 
 const transportItems: NavItem[] = [
@@ -62,6 +66,7 @@ const financeItems: NavItem[] = [
   { id: 'documents', label: 'nav.documents', icon: FileText },
   { id: 'expenses', label: 'nav.expenses', icon: Wallet },
   { id: 'invoices', label: 'nav.invoices', icon: Receipt },
+  { id: 'payments', label: 'Encaissements', icon: HandCoins },
   { id: 'incidents', label: 'nav.incidents', icon: AlertTriangle },
   { id: 'reports', label: 'nav.reports', icon: BarChart3 },
   { id: 'settings', label: 'nav.settings', icon: Settings },
@@ -81,7 +86,7 @@ function NavItemButton({
 }) {
   const { t } = useI18n()
   const currentView = useAppStore((s) => s.currentView)
-  const isActive = currentView === item.id
+  const isActive = currentView === item.id || (item.id === 'dashboard' && currentView === 'role-dashboard')
   const Icon = item.icon
 
   const button = (
@@ -141,17 +146,19 @@ function NavSection({
   const setView = useAppStore((s) => s.setView)
   const router = useRouter()
   const queryClient = useQueryClient()
+  const role = useAppStore((s) => s.currentProfile?.role)
   const { t } = useI18n()
 
   const handleNav = (viewId: ViewId) => {
-    setView(viewId)
-    const path = pathForView(viewId)
+    const targetView = viewId === 'dashboard' && ['COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'].includes(role || '') ? 'role-dashboard' : viewId
+    setView(targetView)
+    const path = pathForRoleView(role, viewId, pathForView(viewId))
     if (path) router.push(path)
     onNavigate?.(viewId)
   }
 
   const prefetchView = (viewId: ViewId) => {
-    const path = pathForView(viewId)
+    const path = pathForRoleView(role, viewId, pathForView(viewId))
     if (path) router.prefetch(path)
     if (viewId === 'documents') void queryClient.prefetchQuery({ queryKey: ['documents', 'all', '', 1], queryFn: async () => (await fetch('/api/documents?page=1&pageSize=12')).json(), staleTime: 60_000 })
     if (viewId === 'expenses') void queryClient.prefetchQuery({ queryKey: ['expenses'], queryFn: async () => (await fetch('/api/expenses')).json(), staleTime: 60_000 })
@@ -191,12 +198,15 @@ export function Sidebar() {
     logout()
   }
 
-  const filteredFinanceItems = financeItems.filter(item => {
-    if (['expenses', 'settings', 'subscription', 'audit'].includes(item.id)) {
-      return currentProfile?.role === 'ADMIN'
-    }
-    return true
-  })
+  const role = currentProfile?.role || 'AGENT'
+  const allowedViews: Record<string, ViewId[]> = {
+    COMMERCIAL: ['dashboard', 'clients', 'quotes', 'cases', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'incidents', 'expenses', 'invoices', 'payments', 'reports'],
+    EXPLOITANT: ['dashboard', 'clients', 'quotes', 'cases', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'incidents', 'expenses', 'invoices', 'reports'],
+    COMPTABLE: ['dashboard', 'clients', 'quotes', 'cases', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'incidents', 'expenses', 'invoices', 'payments', 'reports'],
+    ADMIN: [...navItems, ...transportItems, ...financeItems].map((item) => item.id),
+    AGENT: ['dashboard', 'cases', 'clients', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'expenses', 'invoices', 'incidents', 'reports'],
+  }
+  const visible = (items: NavItem[]) => items.filter((item) => (allowedViews[role] || []).includes(item.id))
 
   const initials = currentProfile
     ? `${currentProfile.firstName[0]}${currentProfile.lastName[0]}`.toUpperCase()
@@ -219,7 +229,7 @@ export function Sidebar() {
           {!sidebarCollapsed && (
             <div className="flex flex-col overflow-hidden">
               <span className="truncate text-sm font-bold tracking-tight text-white">
-                Ibrahima Gold Service
+                {getWorkspaceLabel(role)}
               </span>
               <span className="text-[10px] font-medium uppercase tracking-wider text-primary">
                 Logistics Platform
@@ -234,15 +244,15 @@ export function Sidebar() {
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-3">
         <div className="space-y-5">
-          <NavSection items={navItems} collapsed={sidebarCollapsed} />
+          <NavSection items={visible(navItems)} collapsed={sidebarCollapsed} />
           <NavSection
             title="section.transport"
-            items={transportItems}
+            items={visible(transportItems)}
             collapsed={sidebarCollapsed}
           />
           <NavSection
             title="section.operations"
-            items={filteredFinanceItems}
+            items={visible(financeItems)}
             collapsed={sidebarCollapsed}
           />
         </div>
@@ -278,7 +288,7 @@ export function Sidebar() {
                   : 'Utilisateur'}
               </span>
               <span className="truncate text-[11px] text-[#8fa19d]">
-                {currentProfile?.role || 'Admin'}
+                {getRoleLabel(currentProfile?.role)}
               </span>
             </div>
           )}
@@ -330,12 +340,15 @@ export function MobileSidebar({
     logout()
   }
 
-  const filteredFinanceItems = financeItems.filter(item => {
-    if (['expenses', 'settings', 'subscription', 'audit'].includes(item.id)) {
-      return currentProfile?.role === 'ADMIN'
-    }
-    return true
-  })
+  const role = currentProfile?.role || 'AGENT'
+  const allowedViews: Record<string, ViewId[]> = {
+    COMMERCIAL: ['dashboard', 'clients', 'quotes', 'cases', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'incidents', 'expenses', 'invoices', 'payments', 'reports'],
+    EXPLOITANT: ['dashboard', 'clients', 'quotes', 'cases', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'incidents', 'expenses', 'invoices', 'reports'],
+    COMPTABLE: ['dashboard', 'clients', 'quotes', 'cases', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'incidents', 'expenses', 'invoices', 'payments', 'reports'],
+    ADMIN: [...navItems, ...transportItems, ...financeItems].map((item) => item.id),
+    AGENT: ['dashboard', 'cases', 'clients', 'maritime', 'shipping-trackers', 'aerien', 'terrestre', 'douane', 'documents', 'expenses', 'invoices', 'incidents', 'reports'],
+  }
+  const visible = (items: NavItem[]) => items.filter((item) => (allowedViews[role] || []).includes(item.id))
 
   const initials = currentProfile
     ? `${currentProfile.firstName[0]}${currentProfile.lastName[0]}`.toUpperCase()
@@ -372,7 +385,7 @@ export function MobileSidebar({
               </div>
               <div className="flex flex-col">
                 <span className="truncate text-sm font-bold tracking-tight text-white">
-                  Ibrahima Gold Service
+                  {getWorkspaceLabel(role)}
                 </span>
                 <span className="text-[10px] font-medium uppercase tracking-wider text-primary">
                   Logistics Platform
@@ -395,19 +408,19 @@ export function MobileSidebar({
           <ScrollArea className="flex-1 px-3 py-3">
             <div className="space-y-5">
               <NavSection
-                items={navItems}
+                items={visible(navItems)}
                 collapsed={false}
                 onNavigate={() => onOpenChange(false)}
               />
               <NavSection
                 title="section.transport"
-                items={transportItems}
+                items={visible(transportItems)}
                 collapsed={false}
                 onNavigate={() => onOpenChange(false)}
               />
               <NavSection
                 title="section.operations"
-                items={filteredFinanceItems}
+                items={visible(financeItems)}
                 collapsed={false}
                 onNavigate={() => onOpenChange(false)}
               />

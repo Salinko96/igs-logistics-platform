@@ -23,6 +23,11 @@ import AuditView from '@/components/audit/audit-view'
 import ShippingTrackersView from '@/components/tracking/shipping-trackers-view'
 import ClientPortalPage from '@/app/portail/page'
 import SubscriptionView from '@/components/subscription/subscription-view'
+import RoleDashboardView from '@/components/dashboard/role-dashboard-view'
+import QuotesView from '@/components/quotes/quotes-view'
+import QuoteNewView from '@/components/quotes/quote-new-view'
+import PaymentsView from '@/components/payments/payments-view'
+import { WorkflowRealtime } from '@/components/workflow/workflow-realtime'
 
 const viewVariants = {
   initial: { opacity: 0, y: 8 },
@@ -46,6 +51,9 @@ function ViewRouter() {
     case 'dashboard':
       view = <DashboardView />
       break
+    case 'role-dashboard':
+      view = <RoleDashboardView />
+      break
     case 'cases':
       view = <CasesList filter={{ scope: viewParams.scope, search: viewParams.search }} />
       break
@@ -57,6 +65,15 @@ function ViewRouter() {
       break
     case 'clients':
       view = <ClientsList />
+      break
+    case 'quotes':
+      view = <QuotesView />
+      break
+    case 'quote-new':
+      view = <QuoteNewView />
+      break
+    case 'payments':
+      view = <PaymentsView />
       break
     case 'crm':
       view = <ClientsList />
@@ -130,7 +147,7 @@ function ViewRouter() {
   )
 }
 
-export function AppShell({ initialProfile, initialView = 'dashboard' }: { initialProfile?: any; initialView?: import('@/lib/store').ViewId }) {
+export function AppShell({ initialProfile, initialView = 'dashboard', initialParams = {} }: { initialProfile?: any; initialView?: import('@/lib/store').ViewId; initialParams?: Record<string, string> }) {
   const isAuthenticated = useAppStore((s) => s.isAuthenticated)
   const sidebarOpen = useAppStore((s) => s.sidebarOpen)
   const setSidebarOpen = useAppStore((s) => s.setSidebarOpen)
@@ -140,9 +157,9 @@ export function AppShell({ initialProfile, initialView = 'dashboard' }: { initia
   React.useEffect(() => {
     if (initialProfile) {
       login(initialProfile)
-      setView(initialView)
+      setView(initialView, initialParams)
     }
-  }, [initialProfile, initialView, login, setView])
+  }, [initialProfile, initialView, initialParams, login, setView])
 
   if (!isAuthenticated) {
     return (
@@ -154,6 +171,7 @@ export function AppShell({ initialProfile, initialView = 'dashboard' }: { initia
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <WorkflowRealtime />
       {/* Desktop sidebar - always visible, hidden on mobile */}
       <div className="hidden md:flex">
         <Sidebar />

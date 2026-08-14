@@ -45,7 +45,7 @@ export async function proxy(request: NextRequest) {
     '/douane', '/documents', '/debours', '/facturation', '/incidents', '/rapports',
     '/parametres', '/abonnement', '/notifications', '/journal-activite', '/onboarding',
   ])
-  const isRoleWorkspace = ['/commercial', '/exploitant', '/comptable'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
+  const isRoleWorkspace = ['/commercial', '/exploitant', '/comptable', '/travail/commercial', '/travail/exploitant', '/travail/comptable'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))
   const isWorkspaceRoute = protectedSections.has(path) || isRoleWorkspace
   const isPortalRoute = path.startsWith('/portail') || path.startsWith('/portal')
   const isLoginRoute = path === '/login'

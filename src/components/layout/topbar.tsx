@@ -35,9 +35,13 @@ import { useI18n } from '@/lib/i18n'
 
 const viewNames: Record<string, string> = {
   dashboard: 'nav.dashboard',
+  'role-dashboard': 'nav.dashboard',
   cases: 'nav.cases',
   'case-detail': 'view.case',
   clients: 'nav.clients',
+  quotes: 'Devis',
+  'quote-new': 'Nouveau devis',
+  payments: 'Encaissements',
   maritime: 'Maritime',
   'shipping-trackers': 'nav.tracking',
   aerien: 'A\u00e9rien',
