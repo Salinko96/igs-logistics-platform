@@ -40,20 +40,11 @@ const getDashboardPayload = unstable_cache(
         reportPeriod: null,
       }
     }
-    if (period === 'rolling12') {
-      const latestCase = await db.case.findFirst({ where: { organizationId: organization.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
-      const latestInvoice = await db.invoice.findFirst({ where: { organizationId: organization.id, issuedAt: { not: null } }, orderBy: { issuedAt: 'desc' }, select: { issuedAt: true } })
-      const latestIncident = await db.incident.findFirst({ where: { organizationId: organization.id }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
-      const rolling = rollingTwelveMonthRange(latestDate([latestCase?.createdAt, latestInvoice?.issuedAt, latestIncident?.createdAt], now))
-      from = rolling.from
-      to = rolling.to
-    }
-    const firstMonth = from ?? new Date(now.getFullYear(), now.getMonth() - 5, 1)
-    const lastMonth = to ?? now
-    const createdAt = from || to ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
+    const rollingPeriod = period === 'rolling12'
+    const createdAt = !rollingPeriod && (from || to) ? { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } : undefined
     // Supabase's transaction pool is configured with connection_limit=1.
     // Keep these reads sequential so one dashboard request cannot exhaust it.
-    const cases = await db.case.findMany({
+    let cases = await db.case.findMany({
         where: { organizationId: organization.id, status: { not: 'annule' }, ...(createdAt ? { createdAt } : {}) },
         orderBy: { updatedAt: 'desc' },
         select: {
@@ -71,15 +62,15 @@ const getDashboardPayload = unstable_cache(
           serviceChef: { select: { firstName: true, lastName: true } },
         },
       })
-    const expensesForCounters = await db.expenseRequest.findMany({
+    let expensesForCounters = await db.expenseRequest.findMany({
         where: { organizationId: organization.id, status: { in: ['en_validation', 'approuve', 'soumis'] }, ...(createdAt ? { createdAt } : {}) },
-        select: { id: true },
+        select: { id: true, createdAt: true },
       })
-    const invoicesForCounters = await db.invoice.findMany({
-        where: { organizationId: organization.id, status: { not: 'annulee' }, ...(from || to ? { issuedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) },
+    let invoicesForCounters = await db.invoice.findMany({
+        where: { organizationId: organization.id, status: { not: 'annulee' }, ...(!rollingPeriod && (from || to) ? { issuedAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}) },
         select: { status: true, netAmount: true, paidAmount: true, issuedAt: true },
       })
-    const incidents = await db.incident.findMany({
+    let incidents = await db.incident.findMany({
         where: { organizationId: organization.id, ...(createdAt ? { createdAt } : {}) },
         orderBy: { createdAt: 'desc' },
         select: {
@@ -97,6 +88,23 @@ const getDashboardPayload = unstable_cache(
           },
         },
       })
+    if (rollingPeriod) {
+      const anchor = latestDate([
+        ...cases.map((item) => item.createdAt),
+        ...invoicesForCounters.map((item) => item.issuedAt),
+        ...incidents.map((item) => item.createdAt),
+      ], now)
+      const rolling = rollingTwelveMonthRange(anchor)
+      from = rolling.from
+      to = rolling.to
+      const inRange = (value: Date) => value >= rolling.from && value <= rolling.to
+      cases = cases.filter((item) => inRange(item.createdAt))
+      expensesForCounters = expensesForCounters.filter((item) => inRange(item.createdAt))
+      invoicesForCounters = invoicesForCounters.filter((item) => Boolean(item.issuedAt && inRange(item.issuedAt)))
+      incidents = incidents.filter((item) => inRange(item.createdAt))
+    }
+    const firstMonth = from ?? new Date(now.getFullYear(), now.getMonth() - 5, 1)
+    const lastMonth = to ?? now
     const recentRevenueInvoices = invoicesForCounters.filter(
       (invoice) =>
         !['annulee', 'brouillon'].includes(invoice.status) &&
