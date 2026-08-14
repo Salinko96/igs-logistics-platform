@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const gate = await checkLoginAllowed(identifierHash)
   if (!gate.allowed) return NextResponse.json({ error: 'Compte temporairement verrouillé après plusieurs échecs. Réessayez dans 15 minutes.', code: 'LOGIN_LOCKED' }, { status: 423 })
 
-  const knownProfile = await db.profile.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true, organizationId: true, isActive: true, role: true } })
+  const knownProfile = await db.profile.findFirst({ where: { email: { equals: email, mode: 'insensitive' } }, select: { id: true, organizationId: true, isActive: true, role: true, approvalStatus: true } })
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error || !data.user || !knownProfile?.isActive) {
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   await logAudit({ organizationId: knownProfile.organizationId, profileId: knownProfile.id, action: 'login', entityType: 'auth', details: { assurance: 'aal1' }, request })
   const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
   const requestedDestination = typeof body.next === 'string' && body.next.startsWith('/') ? body.next : null
-  const destination = requestedDestination && canAccessPath(knownProfile.role, requestedDestination)
+  const destination = knownProfile.approvalStatus !== 'approved' ? '/en-attente' : requestedDestination && canAccessPath(knownProfile.role, requestedDestination)
     ? requestedDestination
     : getHomePath(knownProfile.role)
   const mfaSetupRequired = knownProfile.role === 'ADMIN' && assurance?.nextLevel !== 'aal2'

@@ -15,7 +15,7 @@ export async function GET() {
 
     const profiles = await db.profile.findMany({
       where: { organizationId: profile.organizationId },
-      select: { id: true, firstName: true, lastName: true, role: true, email: true },
+      select: { id: true, firstName: true, lastName: true, role: true, email: true, agency: true, site: true, isActive: true, approvalStatus: true, requestedRole: true },
       orderBy: { firstName: 'asc' },
     })
 
@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
 
     await assertSaaSQuota(sessionProfile.organizationId, 'users')
 
-    const allowedRoles = ['ADMIN', 'AGENT', 'CLIENT'] as const
-    const requestedRole = typeof body.role === 'string' ? body.role.trim().toUpperCase() : 'AGENT'
+    const allowedRoles = ['ADMIN', 'AGENT', 'CLIENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'] as const
+    const requestedRole = typeof body.role === 'string' ? body.role.trim().toUpperCase() : 'EXPLOITANT'
     const role = allowedRoles.includes(requestedRole as (typeof allowedRoles)[number])
       ? requestedRole
-      : 'AGENT'
+      : 'EXPLOITANT'
 
     const created = await db.profile.create({
       data: {
@@ -61,14 +61,16 @@ export async function POST(request: NextRequest) {
         lastName,
         email,
         phone: typeof body.phone === 'string' ? body.phone.trim() || null : null,
-        role: role as 'ADMIN' | 'AGENT' | 'CLIENT',
+        role: role as (typeof allowedRoles)[number],
+        agency: typeof body.agency === 'string' ? body.agency.trim() || 'Conakry' : 'Conakry',
+        site: typeof body.site === 'string' ? body.site.trim() || 'Conakry' : 'Conakry',
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
         role: true,
-        email: true,
+        email: true, agency: true, site: true, isActive: true,
       },
     })
 

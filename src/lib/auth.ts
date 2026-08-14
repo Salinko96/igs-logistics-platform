@@ -26,7 +26,11 @@ export async function getSessionProfile() {
       }
     })
 
-    if (profile?.role === 'ADMIN') {
+    if (profile && (profile.approvalStatus !== 'approved' || !profile.isActive)) {
+      return { user, profile: null, approvalPending: true as const, mfaRequired: false as const }
+    }
+
+    if (profile?.role === 'ADMIN' && profile.approvalStatus === 'approved') {
       const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
       if (assurance?.currentLevel !== 'aal2') return { user, profile: null, mfaRequired: true as const }
     }
@@ -49,6 +53,7 @@ export async function requireRole(...allowedRoles: app_role[]) {
   }
 
   if ('mfaRequired' in session && session.mfaRequired) redirect('/mfa-setup')
+  if ('approvalPending' in session && session.approvalPending) redirect('/en-attente')
 
   // User is authenticated. If profile is missing or role doesn't match,
   // don't redirect to /login (that would cause a loop).
@@ -60,7 +65,7 @@ export async function requireRole(...allowedRoles: app_role[]) {
       const fallbackProfile = await db.profile.findUnique({
         where: { userId: user.id },
       })
-      if (fallbackProfile && allowedRoles.includes(fallbackProfile.role)) {
+      if (fallbackProfile?.approvalStatus === 'approved' && fallbackProfile.isActive && allowedRoles.includes(fallbackProfile.role)) {
         return { user, profile: fallbackProfile }
       }
     } catch {
@@ -76,6 +81,8 @@ export async function requireRole(...allowedRoles: app_role[]) {
     redirect('/unauthorized')
   }
 
+  if (profile.approvalStatus !== 'approved' || !profile.isActive) redirect('/en-attente')
+
   if (!allowedRoles.includes(profile.role)) {
     redirect('/unauthorized')
   }
@@ -86,7 +93,9 @@ export async function requireRole(...allowedRoles: app_role[]) {
 export async function requireWorkspaceRole(...allowedRoles: app_role[]) {
   const session = await getSessionProfile()
   if (!session.user) redirect('/login')
+  if ('approvalPending' in session && session.approvalPending) redirect('/en-attente')
   if (!session.profile) redirect('/unauthorized')
+  if (session.profile.approvalStatus !== 'approved' || !session.profile.isActive) redirect('/en-attente')
   if (!allowedRoles.includes(session.profile.role)) redirect(getHomePath(session.profile.role))
   return { user: session.user, profile: session.profile }
 }

@@ -20,6 +20,8 @@ export async function POST(request: NextRequest) {
     const firstName = typeof body.firstName === 'string' ? body.firstName.trim() : ''
     const lastName = typeof body.lastName === 'string' ? body.lastName.trim() : ''
     const organizationId = profile.organizationId
+    const agency = typeof body.agency === 'string' ? body.agency.trim() || 'Conakry' : 'Conakry'
+    const site = typeof body.site === 'string' ? body.site.trim() || 'Conakry' : 'Conakry'
 
     if (!email || !firstName || !lastName) {
       return NextResponse.json(
@@ -28,7 +30,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!['ADMIN', 'AGENT', 'CLIENT'].includes(role)) {
+    if (!['ADMIN', 'AGENT', 'CLIENT', 'COMMERCIAL', 'EXPLOITANT', 'COMPTABLE'].includes(role)) {
       return NextResponse.json(
         { error: 'Rôle invalide' },
         { status: 400 }
@@ -48,6 +50,8 @@ export async function POST(request: NextRequest) {
         first_name: firstName,
         last_name: lastName,
         organization_id: organizationId,
+        agency,
+        site,
       },
     })
 

@@ -48,6 +48,11 @@ type ProfileRow = {
   lastName: string
   email: string
   role: string
+  agency: string
+  site: string
+  isActive: boolean
+  approvalStatus: string
+  requestedRole: string | null
 }
 
 function getRoleLabel(role: string) {
@@ -55,6 +60,9 @@ function getRoleLabel(role: string) {
     ADMIN: 'Administrateur',
     AGENT: 'Agent opérationnel',
     CLIENT: 'Client',
+    COMMERCIAL: 'Commercial',
+    EXPLOITANT: 'Exploitant',
+    COMPTABLE: 'Comptable',
     dg: 'Directeur Général',
     do: 'Directeur des Opérations',
     daf: 'DAF',
@@ -142,6 +150,8 @@ export default function SettingsView() {
     email: '',
     phone: '',
     role: 'AGENT',
+    agency: 'Conakry',
+    site: 'Conakry',
   })
 
   const defaults = useMemo(() => {
@@ -207,12 +217,19 @@ export default function SettingsView() {
       await queryClient.invalidateQueries({ queryKey: ['settings'] })
       await queryClient.invalidateQueries({ queryKey: ['settings-profiles'] })
       setUserDialogOpen(false)
-      setUserForm({ firstName: '', lastName: '', email: '', phone: '', role: 'AGENT' })
+      setUserForm({ firstName: '', lastName: '', email: '', phone: '', role: 'AGENT', agency: 'Conakry', site: 'Conakry' })
     } catch (error) {
       setUserError(error instanceof Error ? error.message : 'Erreur inconnue')
     } finally {
       setUserBusy(false)
     }
+  }
+
+  const reviewUser = async (id: string, action: 'approve' | 'reject' | 'disable', role?: string | null) => {
+    const response = await fetch(`/api/admin/users/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, role }) })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) { setUserError(payload.error || 'Décision impossible'); return }
+    await queryClient.invalidateQueries({ queryKey: ['settings-profiles'] })
   }
 
   const updatePassword = async () => {
@@ -303,6 +320,7 @@ export default function SettingsView() {
                       <TableHead className="hidden sm:table-cell">Email</TableHead>
                       <TableHead>Rôle</TableHead>
                       <TableHead className="hidden md:table-cell">Statut</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -310,8 +328,9 @@ export default function SettingsView() {
                       <TableRow key={user.id}>
                         <TableCell>{user.firstName} {user.lastName}</TableCell>
                         <TableCell className="hidden sm:table-cell text-muted-foreground">{user.email}</TableCell>
-                        <TableCell><Badge variant="secondary" className={`text-xs ${getRoleColor(user.role)}`}>{getRoleLabel(user.role)}</Badge></TableCell>
-                        <TableCell className="hidden md:table-cell"><Badge variant="secondary" className="bg-green-100 text-green-700">Actif</Badge></TableCell>
+                        <TableCell><Badge variant="secondary" className={`text-xs ${getRoleColor(user.requestedRole || user.role)}`}>{getRoleLabel(user.requestedRole || user.role)}</Badge></TableCell>
+                        <TableCell className="hidden md:table-cell"><Badge variant="secondary" className={user.approvalStatus === 'pending' ? 'bg-amber-100 text-amber-800' : user.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}>{user.approvalStatus === 'pending' ? 'En attente' : user.isActive ? 'Actif' : 'Désactivé'}</Badge></TableCell>
+                        <TableCell>{user.approvalStatus === 'pending' ? <div className="flex gap-2"><Button size="sm" onClick={() => void reviewUser(user.id, 'approve', user.requestedRole)}>Approuver</Button><Button size="sm" variant="outline" onClick={() => void reviewUser(user.id, 'reject')}>Rejeter</Button></div> : user.role !== 'ADMIN' && user.isActive ? <Button size="sm" variant="ghost" onClick={() => void reviewUser(user.id, 'disable')}>Désactiver</Button> : '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -345,9 +364,16 @@ export default function SettingsView() {
                   <SelectContent>
                     <SelectItem value="ADMIN">Administrateur</SelectItem>
                     <SelectItem value="AGENT">Agent opérationnel</SelectItem>
+                    <SelectItem value="COMMERCIAL">Commercial</SelectItem>
+                    <SelectItem value="EXPLOITANT">Exploitant</SelectItem>
+                    <SelectItem value="COMPTABLE">Comptable</SelectItem>
                     <SelectItem value="CLIENT">Client</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Field label="Agence" value={userForm.agency} onChange={(value) => setUserForm((s) => ({ ...s, agency: value }))} />
+                <Field label="Site" value={userForm.site} onChange={(value) => setUserForm((s) => ({ ...s, site: value }))} />
               </div>
               {userError ? <p className="text-sm text-destructive">{userError}</p> : null}
               <DialogFooter>

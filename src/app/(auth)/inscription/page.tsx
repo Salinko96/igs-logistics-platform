@@ -9,17 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { readJson } from '@/lib/http'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const benefits = [
-  'Essai Starter gratuit pendant 14 jours',
-  'Aucune carte bancaire requise',
-  '2FA obligatoire pour les administrateurs',
-  'Données isolées par organisation',
+  'Un compte strictement personnel',
+  'Validation du poste par un administrateur',
+  'Données IGS partagées entre les métiers',
+  'Droits limités aux tâches de votre rôle',
 ]
 
 export default function SignupPage() {
   const router = useRouter()
-  const [form, setForm] = useState({ firstName: '', lastName: '', organizationName: '', email: '', password: '' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', phone: '+224', requestedRole: 'EXPLOITANT', email: '', password: '' })
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
 
@@ -31,7 +32,7 @@ export default function SignupPage() {
       if (form.password.length < 10 || !/[A-Z]/.test(form.password) || !/[a-z]/.test(form.password) || !/\d/.test(form.password) || !/[^A-Za-z0-9]/.test(form.password)) {
         throw new Error('Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.')
       }
-      const response = await fetch('/api/saas/signup', {
+      const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -39,7 +40,7 @@ export default function SignupPage() {
       const body = await readJson<{ message?: string; error?: string }>(response)
       if (!response.ok) throw new Error(body.error || 'Inscription impossible')
       setMessage({ type: 'success', text: body.message || 'Compte créé avec succès.' })
-      window.setTimeout(() => router.push('/login?signup=success'), 1800)
+      window.setTimeout(() => router.push('/login?signup=pending'), 2200)
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Inscription impossible' })
     } finally {
@@ -54,8 +55,8 @@ export default function SignupPage() {
           <div className="absolute -right-24 -top-24 size-80 rounded-full border border-white/10 bg-white/5" />
           <div>
             <p className="text-sm font-bold uppercase tracking-[.24em] text-[#f28a42]">IGS Nexus</p>
-            <h1 className="mt-8 max-w-lg text-5xl font-bold leading-[1.05]">Pilotez votre logistique depuis un seul espace.</h1>
-            <p className="mt-5 max-w-md text-white/65">Un environnement sécurisé pour le transit, la douane, les documents et la facturation en Guinée.</p>
+            <h1 className="mt-8 max-w-lg text-5xl font-bold leading-[1.05]">Rejoignez le flux de travail IGS.</h1>
+            <p className="mt-5 max-w-md text-white/65">Chaque collaborateur dispose de son propre compte et travaille sur les mêmes dossiers, documents et opérations.</p>
           </div>
           <ul className="space-y-4 text-sm text-white/80">
             {benefits.map((item) => (
@@ -71,8 +72,8 @@ export default function SignupPage() {
           <Card className="w-full min-w-0 max-w-[calc(100vw-3.5rem)] overflow-hidden border-0 shadow-none sm:max-w-full">
             <CardHeader className="min-w-0 px-0">
               <div className="mb-3 flex size-11 items-center justify-center rounded-xl bg-primary/10 text-primary"><Building2 /></div>
-              <CardTitle className="text-2xl sm:text-3xl">Créer votre organisation</CardTitle>
-              <p className="max-w-full [overflow-wrap:anywhere] text-sm text-muted-foreground">Votre espace Starter est opérationnel en quelques minutes.</p>
+              <CardTitle className="text-2xl sm:text-3xl">Demander un compte IGS</CardTitle>
+              <p className="max-w-full [overflow-wrap:anywhere] text-sm text-muted-foreground">Votre accès restera en attente jusqu’à validation par un administrateur.</p>
             </CardHeader>
             <CardContent className="min-w-0 px-0">
               <form onSubmit={submit} className="min-w-0 space-y-4">
@@ -80,7 +81,7 @@ export default function SignupPage() {
                   <div className="min-w-0 space-y-2"><Label>Prénom</Label><Input className="w-full" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} required /></div>
                   <div className="min-w-0 space-y-2"><Label>Nom</Label><Input className="w-full" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} required /></div>
                 </div>
-                <div className="min-w-0 space-y-2"><Label>Raison sociale</Label><Input className="w-full" value={form.organizationName} onChange={(event) => setForm({ ...form, organizationName: event.target.value })} required /></div>
+                <div className="grid min-w-0 gap-4 sm:grid-cols-2"><div className="min-w-0 space-y-2"><Label>Téléphone</Label><Input className="w-full" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} placeholder="+224 622 00 00 00" required /></div><div className="min-w-0 space-y-2"><Label>Poste demandé</Label><Select value={form.requestedRole} onValueChange={(value) => setForm({ ...form, requestedRole: value })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="COMMERCIAL">Commercial</SelectItem><SelectItem value="EXPLOITANT">Exploitant</SelectItem><SelectItem value="COMPTABLE">Comptable</SelectItem></SelectContent></Select></div></div>
                 <div className="min-w-0 space-y-2"><Label>Email professionnel</Label><Input className="w-full" type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></div>
                 <div className="min-w-0 space-y-2">
                   <Label>Mot de passe</Label>
@@ -90,7 +91,7 @@ export default function SignupPage() {
                 {message ? <div className={message.type === 'success' ? 'rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800' : 'rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700'}>{message.text}</div> : null}
                 <Button type="submit" className="h-11 w-full" disabled={busy || message?.type === 'success'}>
                   {busy ? <Loader2 className="mr-2 size-4 animate-spin" /> : <ShieldCheck className="mr-2 size-4" />}
-                  {busy ? 'Création sécurisée...' : 'Démarrer mon essai'}
+                  {busy ? 'Envoi sécurisé...' : 'Envoyer ma demande'}
                 </Button>
                 <p className="text-center text-sm text-muted-foreground">Déjà inscrit ? <Link href="/login" className="font-semibold text-primary">Se connecter</Link></p>
                 <p className="text-center text-xs leading-5 text-muted-foreground">En créant votre espace, vous acceptez nos <Link href="/conditions-generales" className="font-medium text-primary hover:underline">conditions générales</Link> et reconnaissez avoir lu notre <Link href="/confidentialite" className="font-medium text-primary hover:underline">politique de confidentialité</Link>.</p>

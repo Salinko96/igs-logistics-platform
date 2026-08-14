@@ -7,6 +7,9 @@ export async function authorizeApi(action: PermissionAction, resource: Permissio
   if (!session.user || !session.profile) {
     return { allowed: false as const, response: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }) }
   }
+  if (session.profile.approvalStatus !== 'approved' || !session.profile.isActive) {
+    return { allowed: false as const, response: NextResponse.json({ error: 'Compte en attente d’approbation' }, { status: 403 }) }
+  }
   if (!can(session.profile.role, action, resource)) {
     return { allowed: false as const, response: NextResponse.json({ error: 'Accès interdit' }, { status: 403 }) }
   }

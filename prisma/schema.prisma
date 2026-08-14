@@ -171,6 +171,10 @@ model Profile {
   clientId       String?
   agency         String    @default("Conakry")
   site           String    @default("Conakry")
+  approvalStatus String    @default("approved") // pending, approved, rejected
+  requestedRole  String?
+  approvedAt     DateTime?
+  approvedById   String?
 
   organization     Organization      @relation(fields: [organizationId], references: [id])
   client           Client?           @relation(fields: [clientId], references: [id])
@@ -185,6 +189,7 @@ model Profile {
   quotations       Quotation[]       @relation("QuotationCommercial")
 
   @@index([organizationId])
+  @@index([organizationId, approvalStatus])
 }
 
 // ─── Clients & CRM ───
